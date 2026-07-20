@@ -1,0 +1,4 @@
+# source: Jun, Wang, Bricker & Bathe, Nat Commun 10:5419 (2019)
+# doi: 10.1038/s41467-019-13457-y
+# extracted from Nature Source Data file (Figure 3a–c TEM internal angles)
+# edge_type DX = double-crossover wireframe; 6HB = 6-helix-bundle wireframe (METIS)
