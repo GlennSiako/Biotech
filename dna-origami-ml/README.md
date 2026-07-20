@@ -17,8 +17,8 @@ Each row is one **measured internal angle** from TEM for DX vs 6HB wireframe des
 | 1 | Hypothesis \(h_\theta(x)\) + look at data | `python3 step1_look_at_data.py` |
 | 2 | Cost \(J(\theta)\) (MSE) | `python3 step2_cost_function.py` |
 | 3 | Gradients + gradient descent | `python3 step3_gradient_descent.py` |
-| 4 | Train linear regression on angle error / add features | (next) |
-| 5 | Turn into classification (threshold / logistic) | |
+| 4 | Multi-feature model (+ scaling) | `python3 step4_multi_feature.py` |
+| 5 | Turn into classification (threshold / logistic) | (next) |
 
 We go **one step at a time**. Do not skip ahead.
 
