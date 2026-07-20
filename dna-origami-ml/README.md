@@ -1,62 +1,40 @@
-# DNA Origami Folding — Logistic Regression from First Principles
+# DNA Origami ML — learn by building (Bathe lab data)
 
-Interactive learning project: build logistic regression the Andrew Ng way, applied to a simplified DNA origami folding problem.
+Interactive path: **linear regression first principles → then classification**, using real TEM angle measurements from a Mark Bathe lab paper.
 
-## The scientific question (in plain language)
+## Paper / data
 
-Given a few experimental / design settings for a DNA origami, can we predict whether the structure is likely to **fold successfully**?
+- Jun, Wang, Bricker & Bathe, *Nat Commun* **10**, 5419 (2019) — METIS wireframe DNA origami  
+- DOI: https://doi.org/10.1038/s41467-019-13457-y  
+- Curated table: `data/bathe_metis_tem_angles.csv` (Source Data Figures 3a–c)
 
-This is a **binary classification** problem:
+Each row is one **measured internal angle** from TEM for DX vs 6HB wireframe designs.
 
-- \(y = 1\): folds well (clean band / expected shape)
-- \(y = 0\): folds poorly (aggregates, incomplete, wrong product)
+## Learning sequence (interactive)
 
-## Proposed starter model (v0 — keep it explainable)
+| Step | Concept | What you run / do |
+|------|---------|-------------------|
+| 1 | Hypothesis \(h_\theta(x)\) + look at data | `python3 step1_look_at_data.py` |
+| 2 | Cost \(J(\theta)\) (MSE) — derive together | (next, after your checkpoint) |
+| 3 | Gradients + gradient descent — implement | |
+| 4 | Train linear regression on angle error | |
+| 5 | Turn into classification (threshold / logistic) | |
 
-We intentionally start with **two features** so you can draw the decision boundary and explain every weight out loud.
+We go **one step at a time**. Do not skip ahead.
 
-| Feature | Symbol | Physical intuition |
-|--------|--------|--------------------|
-| Mg²⁺ concentration (mM) | \(x_1\) | Divalent cations stabilize DNA helices / folding |
-| Staple excess (staple:scaffold molar ratio) | \(x_2\) | Enough staples help complete the structure; too little → incomplete |
+## Important naming note
 
-Model hypothesis (same as the course):
+- **Linear regression** predicts a **number** (here: angle error in degrees).  
+- **Classification** predicts a **label** (here: high- vs low-fidelity angle).  
+Andrew Ng teaches linear regression first because the same \(\theta\), cost, and gradient ideas carry into logistic regression. We will build both.
 
-\[
-\hat{y} = h_\theta(x) = \sigma(\theta_0 + \theta_1 x_1 + \theta_2 x_2)
-\]
-
-where \(\sigma(z) = 1 / (1 + e^{-z})\) is the sigmoid.
-
-Interpretation you should be able to say:
-
-- \(\theta_1 > 0\): higher Mg²⁺ increases predicted fold probability
-- \(\theta_2 > 0\): higher staple excess increases predicted fold probability
-- \(\theta_0\): bias / baseline log-odds when features are at their scaled zero
-
-## What is synthetic on purpose
-
-Real origami datasets are messy (gel scores, AFM, different labs). For learning derivatives and gradient descent, we generate a **tiny synthetic dataset** from a known “true” folding rule, then ask the model to recover a similar boundary.
-
-That lets you check: *Did my implementation learn something sensible?*
-
-## How we will learn interactively
-
-1. Agree on features + labels (this README is the proposal — push back anytime).
-2. Derive cost \(J(\theta)\) and gradients by hand.
-3. Implement sigmoid → loss → gradients → gradient descent in NumPy only.
-4. Train, inspect \(\theta\), plot decision boundary, explain a few example designs.
-5. Only later: more features, regularization, real data.
-
-## Run the starter
+## Quick start (Step 1 only)
 
 ```bash
 cd dna-origami-ml
-python3 train_folding_logistic.py
+python3 step1_look_at_data.py
 ```
 
-## Files
+## Older synthetic demo (optional)
 
-- `data.py` — synthetic origami folding examples
-- `logistic_regression.py` — model math from scratch (NumPy)
-- `train_folding_logistic.py` — train + print an explainable report
+`train_folding_logistic.py` is an earlier synthetic Mg²⁺ / staple-excess logistic demo. The Bathe path above is the main track now.
