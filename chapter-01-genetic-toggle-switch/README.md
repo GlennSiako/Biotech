@@ -12,7 +12,7 @@ The app is built with **Streamlit**, **Plotly**, and **SciPy** (`solve_ivp`).
 ```bash
 cd chapter-01-genetic-toggle-switch
 pip install -r requirements.txt
-streamlit run app.py
+python3 -m streamlit run app.py
 ```
 
 ## Run the tests
