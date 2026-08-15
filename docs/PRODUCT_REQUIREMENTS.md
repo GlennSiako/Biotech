@@ -544,4 +544,3 @@ The MVP is complete when a user can:
 - Synthetic Biology Open Language (SBOL). [https://sbolstandard.org/](https://sbolstandard.org/)
 - Thomas, D.R. and Walmsley, A.M. “Improved expression of recombinant plant-made hEGF.” *Plant Cell Reports* (2014). [https://doi.org/10.1007/s00299-014-1658-8](https://doi.org/10.1007/s00299-014-1658-8)
 - Hanittinan, O. et al. “Expression optimization, purification and in vitro characterization of human epidermal growth factor produced in *Nicotiana benthamiana*.” *Biotechnology Reports* (2020). [https://doi.org/10.1016/j.btre.2020.e00524](https://doi.org/10.1016/j.btre.2020.e00524)
-

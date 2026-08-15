@@ -265,4 +265,3 @@ known_evidence_gaps:
   - gap_id: "prospective_validation"
     description: "No blinded prospective partner dataset exists."
     consequence: "The benchmark cannot exceed calibration tier S1."
-

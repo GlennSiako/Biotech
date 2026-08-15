@@ -453,4 +453,3 @@ These paths are planned interfaces, not files created by this documentation chan
 1. Thomas DR, Walmsley AM. Improved expression of recombinant plant-made hEGF. *Plant Cell Reports*. 2014;33:1801–1814. <https://doi.org/10.1007/s00299-014-1658-8>
 2. Hanittinan O, Oo Y, Chaotham C, Rattanapisit K, Shanmugaraj B, Phoolcharoen W. Expression optimization, purification and in vitro characterization of human epidermal growth factor produced in *Nicotiana benthamiana*. *Biotechnology Reports*. 2020;28:e00524. <https://doi.org/10.1016/j.btre.2020.e00524>
 3. Hanittinan O. Development of recombinant human epidermal growth factor production in *Nicotiana benthamiana*. Chulalongkorn University thesis. 2020. <https://doi.org/10.58837/CHULA.THE.2020.374>
-
