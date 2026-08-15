@@ -33,8 +33,29 @@ Simulation results generate hypotheses. They do not establish biological activit
 
 - [Product requirements](docs/PRODUCT_REQUIREMENTS.md)
 - [Scientific and simulation model specification](docs/MODEL_SPECIFICATION.md)
+- [Software architecture](docs/ARCHITECTURE.md)
 - [hEGF benchmark specification](docs/benchmarks/HEGF.md)
 - [hEGF evidence manifest](data/evidence/hegf_sources.yaml)
+
+## Run the simulator
+
+Python 3.11 or newer is required. The executable scaffold has no runtime dependencies.
+
+```bash
+PYTHONPATH=src python3 -m phytoforge --seed 42 --rounds 4 --batch-size 4
+```
+
+Generate a machine-readable report:
+
+```bash
+PYTHONPATH=src python3 -m phytoforge --json
+```
+
+Run the test suite:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
 
 ## Repository organization
 
@@ -43,10 +64,12 @@ Simulation results generate hypotheses. They do not establish biological activit
 ├── data/evidence/          # Reviewed, structured evidence manifests
 ├── docs/                   # Product, model, and benchmark specifications
 ├── drug-studies/           # Pre-existing exploratory case studies
-└── README.md
+├── src/phytoforge/         # Executable simulator package
+├── tests/                  # Replay, isolation, and scientific invariants
+└── pyproject.toml
 ```
 
-Implementation directories will be introduced only after the model interfaces and MVP acceptance criteria are approved.
+The current implementation is a standard-library S0 simulator. Its coefficients are transparent synthetic priors designed to test software behavior and qualitative relationships—not fitted biological predictions.
 
 ## Naming
 
@@ -60,4 +83,4 @@ Implementation directories will be introduced only after the model interfaces an
 
 ## Current status
 
-Concept definition and technical specification. No wet-lab or clinical validation has been performed.
+Executable hEGF simulator scaffold with deterministic campaign replay, bounded design selection, biology and process models, noisy observations, and capacity-constrained virtual facility events. No wet-lab or clinical validation has been performed.
