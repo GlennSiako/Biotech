@@ -6,6 +6,8 @@ PhytoForge is a simulation-first platform for designing and optimizing the produ
 
 The initial product focuses on transient expression in *Nicotiana benthamiana* for research proteins and diagnostic antigens. Human therapeutics and vaccines are long-term applications, not claims of the prototype.
 
+The first benchmark product is research-grade recombinant human epidermal growth factor (hEGF). It was selected because multiple plant-expression studies expose meaningful, context-dependent trade-offs across construct design, localization, harvest timing, recovery, and quality.
+
 ## Product thesis
 
 Given a protein specification and manufacturing constraints, PhytoForge should:
@@ -31,12 +33,15 @@ Simulation results generate hypotheses. They do not establish biological activit
 
 - [Product requirements](docs/PRODUCT_REQUIREMENTS.md)
 - [Scientific and simulation model specification](docs/MODEL_SPECIFICATION.md)
+- [hEGF benchmark specification](docs/benchmarks/HEGF.md)
+- [hEGF evidence manifest](data/evidence/hegf_sources.yaml)
 
 ## Repository organization
 
 ```text
 .
-├── docs/                   # Product and model specifications
+├── data/evidence/          # Reviewed, structured evidence manifests
+├── docs/                   # Product, model, and benchmark specifications
 ├── drug-studies/           # Pre-existing exploratory case studies
 └── README.md
 ```

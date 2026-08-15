@@ -24,6 +24,8 @@ This document specifies the quantitative and software models required for the fi
 
 The first implementation is intentionally a scientifically structured synthetic environment. It should produce plausible relationships, conservation behavior, uncertainty, and failure modes—not claims of accurate wet-lab prediction.
 
+Version 0 is instantiated by the [`hegf-nb-transient-v0`](benchmarks/HEGF.md) benchmark for research-grade recombinant human epidermal growth factor. The general interfaces in this document remain protein-agnostic so later benchmarks can replace hEGF without rewriting the simulation architecture.
+
 ## 2. Modeling principles
 
 ### 2.1 Separate latent truth from observation
@@ -60,6 +62,7 @@ Every model run returns an applicability grade. Unsupported hosts, production mo
 
 - contained *N. benthamiana* production;
 - transient expression represented at an abstract design level;
+- the bounded hEGF component and scenario library defined by the first benchmark;
 - batch and plant growth;
 - target-protein accumulation and degradation;
 - stress-related expression and biomass penalties;
@@ -913,15 +916,14 @@ Those questions require experimental evidence and qualified review.
 
 ## 26. Decisions required before implementation
 
-1. Select the first abstract protein class and benchmark target profile.
-2. Define the version 0 component library and compatibility matrix.
-3. Choose the simulation framework and numerical solver.
-4. Define canonical schemas and units implementation.
-5. Set synthetic parameter priors and document their rationale.
-6. Choose the first optimization baseline and acquisition strategy.
-7. Define the virtual facility and supported operation graph.
-8. Identify a public retrospective dataset, if one is sufficiently structured.
-9. Establish model-card and run-bundle formats.
+1. Define the hEGF version 0 component library and compatibility matrix.
+2. Choose the simulation framework and numerical solver.
+3. Define canonical schemas and units implementation.
+4. Set hEGF synthetic parameter priors and document their rationale.
+5. Choose the first optimization baseline and acquisition strategy.
+6. Define the virtual facility and supported operation graph.
+7. Determine whether source-level hEGF data are sufficiently structured for retrospective evaluation.
+8. Establish model-card and run-bundle formats.
 
 ## 27. References and standards
 
@@ -929,3 +931,5 @@ Those questions require experimental evidence and qualified review.
 - U.S. Food and Drug Administration. Elelyso approval summary (2012). <https://www.accessdata.fda.gov/drugsatfda_docs/nda/2012/022458Orig1s000SumR.pdf>
 - Synthetic Biology Open Language (SBOL). <https://sbolstandard.org/>
 - Systems Biology Markup Language (SBML). <https://sbml.org/>
+- Thomas, D.R. and Walmsley, A.M. “Improved expression of recombinant plant-made hEGF.” *Plant Cell Reports* (2014). <https://doi.org/10.1007/s00299-014-1658-8>
+- Hanittinan, O. et al. “Expression optimization, purification and in vitro characterization of human epidermal growth factor produced in *Nicotiana benthamiana*.” *Biotechnology Reports* (2020). <https://doi.org/10.1016/j.btre.2020.e00524>

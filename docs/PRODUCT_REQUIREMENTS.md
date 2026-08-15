@@ -1,17 +1,20 @@
 # PhytoForge Product Requirements
 
-| Field | Value |
-|---|---|
-| Document status | Draft for product discovery |
-| Product stage | Simulation-first prototype |
-| Initial domain | Plant molecular farming |
-| Initial host | *Nicotiana benthamiana* |
+
+| Field                 | Value                                     |
+| --------------------- | ----------------------------------------- |
+| Document status       | Draft for product discovery               |
+| Product stage         | Simulation-first prototype                |
+| Initial domain        | Plant molecular farming                   |
+| Initial host          | *Nicotiana benthamiana*                   |
 | Initial product class | Research proteins and diagnostic antigens |
-| Last updated | 2026-08-15 |
+| First benchmark       | Research-grade recombinant hEGF           |
+| Last updated          | 2026-08-15                                |
+
 
 ## 1. Executive summary
 
-PhytoForge is an autonomous virtual biofoundry for plant-made recombinant proteins. A user supplies a protein specification, production objective, and constraints. Biology agents propose candidate expression systems; an experiment planner selects informative campaigns; virtual robots execute those campaigns in a discrete-event facility; quantitative models return uncertain measurements of yield, quality, cost, and reliability; and the system uses the resulting evidence to choose the next campaign.
+PhytoForge is an autonomous virtual biofoundry for plant-made recombinant proteins. A user supplies a protein specification, production objective, and constraints. Biology agents propose candidate expression systems; an experiment planner selects informative campaigns; virtual robots execute those campaigns in a discrete-event facility; quantitative models return uncertain measurements of yield, quality, cost, and reliability; and the system uses the resulting evidence to choose the next campaign. The first benchmark product is research-grade recombinant human epidermal growth factor (hEGF).
 
 The first release is a scientific hypothesis and workflow simulator. It must not claim to validate a drug, vaccine, manufacturing process, or biological mechanism. Its commercial destination is a closed-loop engineering platform connected to customer or partner laboratories.
 
@@ -37,6 +40,8 @@ The long-term product is not a plant animation or a general-purpose chatbot. It 
 
 ## 4. Commercial thesis
 
+
+
 ### 4.1 Initial customer
 
 The initial customer profile is a small molecular-farming team, recombinant-protein laboratory, plant-biotechnology group, or contract research organization that:
@@ -46,9 +51,13 @@ The initial customer profile is a small molecular-farming team, recombinant-prot
 - needs to prioritize limited experimental capacity; and
 - can provide structured outcome data for calibration.
 
+
+
 ### 4.2 Initial job to be done
 
 > When I need to express a recombinant protein in plants, help me choose a small, informative set of designs and production conditions so I can reach an acceptable yield and quality profile with fewer failed experimental rounds.
+
+
 
 ### 4.3 Entry market
 
@@ -85,6 +94,8 @@ The agents and user interface are not durable moats. Potential defensibility com
 - reproducible provenance across every design generation; and
 - demonstrated prospective improvement in experimental selection.
 
+
+
 ## 5. Product principles
 
 1. **Evidence over eloquence:** agent narratives never substitute for model outputs or measurements.
@@ -95,7 +106,11 @@ The agents and user interface are not durable moats. Potential defensibility com
 6. **Human control at consequential boundaries:** users approve external execution and any use involving regulated products.
 7. **Contained production first:** the product does not model environmental release or edible-vaccine deployment in its MVP.
 
+
+
 ## 6. Users
+
+
 
 ### 6.1 Plant molecular-farming scientist
 
@@ -119,9 +134,11 @@ Sets budgets and advancement criteria, then reviews evidence, uncertainty, and d
 
 ## 7. MVP use case
 
+
+
 ### 7.1 Mission
 
-Given a recombinant-protein specification, autonomously identify a robust simulated transient-expression and downstream-processing design in *N. benthamiana*.
+Given the bounded hEGF target product profile, autonomously identify a robust simulated transient-expression and downstream-processing design in *N. benthamiana*. The benchmark is specified in [`docs/benchmarks/HEGF.md`](benchmarks/HEGF.md).
 
 ### 7.2 User inputs
 
@@ -135,6 +152,8 @@ Given a recombinant-protein specification, autonomously identify a robust simula
 - objective weights or Pareto preferences; and
 - constraints such as maximum cycle time.
 
+
+
 ### 7.3 System outputs
 
 - ranked candidate designs;
@@ -146,6 +165,8 @@ Given a recombinant-protein specification, autonomously identify a robust simula
 - failed-campaign diagnosis;
 - model applicability and evidence grade; and
 - machine-readable campaign package.
+
+
 
 ## 8. Core workflow
 
@@ -163,19 +184,23 @@ Given a recombinant-protein specification, autonomously identify a robust simula
 12. The optimizer selects the next batch or stops according to explicit criteria.
 13. The system exports a final evidence package.
 
+
+
 ## 9. Agent system
 
 Agents may reason, retrieve evidence, call models, and propose actions. They may not invent measurements or directly assign scientific scores.
 
-| Agent | Responsibility | Required tools | Prohibited behavior |
-|---|---|---|---|
-| Protein scientist | Identify folding, assembly, stability, and quality risks | Protein metadata, evidence retrieval, property models | Claim biological activity from sequence alone |
-| Plant-expression scientist | Propose host-compatible expression designs | Component library, design rules, expression model | Bypass construct constraints |
-| Process scientist | Propose harvest and downstream options | Mass-balance and process models | Create yield without accounting for recovery |
-| Experimental designer | Select informative comparisons and controls | Optimizer, budget, uncertainty estimates | Select only the current predicted winner |
-| Operations planner | Compile and schedule facility actions | Device registry, scheduler, inventory | Execute unsupported device actions |
-| Quality critic | Detect anomalies and challenge advancement | QC rules, observations, provenance | Rewrite or hide failed results |
-| Orchestrator | Manage state transitions and stopping conditions | Workflow state and policy engine | Override scientific gates without recording it |
+
+| Agent                      | Responsibility                                           | Required tools                                        | Prohibited behavior                            |
+| -------------------------- | -------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| Protein scientist          | Identify folding, assembly, stability, and quality risks | Protein metadata, evidence retrieval, property models | Claim biological activity from sequence alone  |
+| Plant-expression scientist | Propose host-compatible expression designs               | Component library, design rules, expression model     | Bypass construct constraints                   |
+| Process scientist          | Propose harvest and downstream options                   | Mass-balance and process models                       | Create yield without accounting for recovery   |
+| Experimental designer      | Select informative comparisons and controls              | Optimizer, budget, uncertainty estimates              | Select only the current predicted winner       |
+| Operations planner         | Compile and schedule facility actions                    | Device registry, scheduler, inventory                 | Execute unsupported device actions             |
+| Quality critic             | Detect anomalies and challenge advancement               | QC rules, observations, provenance                    | Rewrite or hide failed results                 |
+| Orchestrator               | Manage state transitions and stopping conditions         | Workflow state and policy engine                      | Override scientific gates without recording it |
+
 
 All agent claims must be categorized as one of:
 
@@ -186,6 +211,8 @@ All agent claims must be categorized as one of:
 - hypothesis; or
 - unresolved uncertainty.
 
+
+
 ## 10. Functional requirements
 
 Priority definitions:
@@ -194,6 +221,8 @@ Priority definitions:
 - **P1:** required for a useful pilot;
 - **P2:** expansion capability.
 
+
+
 ### 10.1 Project and target specification
 
 - **P0:** Create, edit, clone, archive, and export a project.
@@ -201,6 +230,8 @@ Priority definitions:
 - **P0:** Validate input completeness and assign an evidence classification.
 - **P1:** Import structured protein metadata.
 - **P2:** Support organization-specific templates and permissions.
+
+
 
 ### 10.2 Design generation and validation
 
@@ -211,6 +242,8 @@ Priority definitions:
 - **P1:** Support customer-defined components with provenance and access controls.
 - **P2:** Export standards-compatible design artifacts where practical.
 
+
+
 ### 10.3 Quantitative simulation
 
 - **P0:** Simulate plant growth, product accumulation, degradation, harvest, extraction, purification, measurement, and cost.
@@ -220,6 +253,8 @@ Priority definitions:
 - **P1:** Calibrate parameters against literature or partner data.
 - **P2:** Substitute learned surrogate models for selected mechanistic components.
 
+
+
 ### 10.4 Autonomous experimentation
 
 - **P0:** Select experiment batches under campaign and resource budgets.
@@ -228,6 +263,8 @@ Priority definitions:
 - **P0:** Stop on budget exhaustion, convergence, infeasibility, or explicit success criteria.
 - **P1:** Support multi-objective constrained Bayesian optimization.
 - **P2:** Support transfer learning across related protein projects.
+
+
 
 ### 10.5 Virtual facility
 
@@ -239,6 +276,8 @@ Priority definitions:
 - **P1:** Validate protocols against vendor-neutral device interfaces.
 - **P2:** Connect approved protocols to partner-lab APIs.
 
+
+
 ### 10.6 Evidence and reporting
 
 - **P0:** Record every design, model invocation, action, observation, and decision.
@@ -247,6 +286,8 @@ Priority definitions:
 - **P0:** Export a human-readable report and machine-readable project bundle.
 - **P1:** Compare model predictions against imported experimental outcomes.
 - **P2:** Generate audit-ready reports for regulated workflow development without claiming regulatory compliance.
+
+
 
 ### 10.7 User experience
 
@@ -258,7 +299,11 @@ Priority definitions:
 - **P1:** Visual construct and process editor.
 - **P1:** Interactive sensitivity and counterfactual analysis.
 
+
+
 ## 11. Non-functional requirements
+
+
 
 ### 11.1 Reproducibility
 
@@ -279,6 +324,8 @@ Biology, process, measurement, optimization, and facility models must communicat
 - maintain an immutable audit log;
 - avoid sending customer sequences to external models without explicit configuration; and
 - support deletion and retention policies.
+
+
 
 ### 11.5 Performance
 
@@ -336,6 +383,8 @@ The interface should display a Pareto frontier. If a composite score is offered,
 
 ## 14. Success metrics
 
+
+
 ### 14.1 Prototype metrics
 
 - percentage of runs reproducible from exported bundles;
@@ -346,6 +395,8 @@ The interface should display a Pareto frontier. If a composite score is offered,
 - optimization improvement over random and fixed-design baselines; and
 - uncertainty calibration on synthetic holdout scenarios.
 
+
+
 ### 14.2 Pilot metrics
 
 - prospective top-k design hit rate against measured partner outcomes;
@@ -354,6 +405,8 @@ The interface should display a Pareto frontier. If a composite score is offered,
 - number of customer decisions made using exported evidence packages;
 - user correction rate for agent-generated hypotheses; and
 - renewal or expansion intent from design partners.
+
+
 
 ### 14.3 Commercial validation
 
@@ -364,6 +417,8 @@ The initial thesis should be reconsidered if:
 - customers will not share appropriately governed outcome data;
 - integration costs exceed the value of the decision support; or
 - the market remains too small to support the platform without expanding hosts.
+
+
 
 ## 15. Safety, regulatory, and claims boundaries
 
@@ -380,19 +435,25 @@ External laboratory execution must require explicit human approval, access contr
 
 ## 16. Risks and mitigations
 
-| Risk | Consequence | Mitigation |
-|---|---|---|
-| Sparse comparable data | Predictions appear precise but are unreliable | Evidence grades, wide uncertainty, partner calibration |
-| Simulator exploitation | Optimizer finds unrealistic model loopholes | Invariants, adversarial scenarios, independent critics |
-| LLM hallucination | Unsupported biological rationale | Tool-grounded claims and typed evidence |
-| Domain shift | Performance fails for new proteins or facilities | Applicability checks and abstention |
-| Plant-specific variability | Poor reproducibility | Hierarchical batch effects and robustness objectives |
-| Downstream bottlenecks ignored | High expression does not yield usable product | End-to-end mass balance |
-| Human-therapeutic positioning too early | Regulatory and credibility risk | Begin with non-clinical proteins |
-| Small initial market | Limited standalone scale | Design architecture for additional hosts |
-| Customer data restrictions | Weak data flywheel | Private calibration, federated options, explicit rights |
+
+| Risk                                    | Consequence                                      | Mitigation                                              |
+| --------------------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| Sparse comparable data                  | Predictions appear precise but are unreliable    | Evidence grades, wide uncertainty, partner calibration  |
+| Simulator exploitation                  | Optimizer finds unrealistic model loopholes      | Invariants, adversarial scenarios, independent critics  |
+| LLM hallucination                       | Unsupported biological rationale                 | Tool-grounded claims and typed evidence                 |
+| Domain shift                            | Performance fails for new proteins or facilities | Applicability checks and abstention                     |
+| Plant-specific variability              | Poor reproducibility                             | Hierarchical batch effects and robustness objectives    |
+| Downstream bottlenecks ignored          | High expression does not yield usable product    | End-to-end mass balance                                 |
+| Human-therapeutic positioning too early | Regulatory and credibility risk                  | Begin with non-clinical proteins                        |
+| Small initial market                    | Limited standalone scale                         | Design architecture for additional hosts                |
+| Customer data restrictions              | Weak data flywheel                               | Private calibration, federated options, explicit rights |
+
+
+
 
 ## 17. Delivery stages
+
+
 
 ### Stage A — deterministic demonstrator
 
@@ -403,6 +464,8 @@ External laboratory execution must require explicit human approval, access contr
 - baseline optimization algorithms; and
 - local evidence dashboard.
 
+
+
 ### Stage B — scientific prototype
 
 - literature-informed parameter priors;
@@ -410,6 +473,8 @@ External laboratory execution must require explicit human approval, access contr
 - fault-injection benchmark suite;
 - imported experimental datasets; and
 - retrospective validation reports.
+
+
 
 ### Stage C — design-partner pilot
 
@@ -419,6 +484,8 @@ External laboratory execution must require explicit human approval, access contr
 - private model calibration; and
 - workflow integration.
 
+
+
 ### Stage D — execution integration
 
 - approved partner-lab adapter;
@@ -426,11 +493,13 @@ External laboratory execution must require explicit human approval, access contr
 - reconciliation of planned and observed actions; and
 - continuous model monitoring.
 
+
+
 ## 18. MVP acceptance criteria
 
 The MVP is complete when a user can:
 
-1. define a target product profile and explicit campaign budget;
+1. load the versioned hEGF target product profile and define an explicit campaign budget;
 2. launch an autonomous multi-round simulation;
 3. observe agents propose designs using typed evidence;
 4. watch virtual devices execute compiled operations;
@@ -440,14 +509,18 @@ The MVP is complete when a user can:
 8. replay the run from a seed and versioned bundle; and
 9. export a report that clearly states the simulation’s limitations.
 
+
+
 ## 19. Open product decisions
 
-- Which research-protein class provides the best first benchmark?
 - Which public datasets contain sufficiently paired design and outcome information?
+- Which hEGF activity assay is sufficiently standardized for future partner validation?
 - Should the first external partner be a plant-expression laboratory, protein supplier, or diagnostic-antigen developer?
 - Which design standard should be the canonical interchange format?
 - Which laboratory protocol abstraction offers the best future hardware portability?
 - Which customer data rights are required to train shared models?
+
+
 
 ## 20. Discovery questions for customer interviews
 
@@ -462,8 +535,13 @@ The MVP is complete when a user can:
 9. Can historical outcomes be shared privately for evaluation?
 10. Who owns the budget for this problem?
 
+
+
 ## 21. References
 
-- Peyret, H. et al. “Plant molecular farming for pharmaceuticals: the state of the art.” *npj Science of Plants* (2026). <https://www.nature.com/articles/s44383-026-00035-7>
-- U.S. Food and Drug Administration. Elelyso approval summary (2012). <https://www.accessdata.fda.gov/drugsatfda_docs/nda/2012/022458Orig1s000SumR.pdf>
-- Synthetic Biology Open Language (SBOL). <https://sbolstandard.org/>
+- Peyret, H. et al. “Plant molecular farming for pharmaceuticals: the state of the art.” *npj Science of Plants* (2026). [https://www.nature.com/articles/s44383-026-00035-7](https://www.nature.com/articles/s44383-026-00035-7)
+- U.S. Food and Drug Administration. Elelyso approval summary (2012). [https://www.accessdata.fda.gov/drugsatfda_docs/nda/2012/022458Orig1s000SumR.pdf](https://www.accessdata.fda.gov/drugsatfda_docs/nda/2012/022458Orig1s000SumR.pdf)
+- Synthetic Biology Open Language (SBOL). [https://sbolstandard.org/](https://sbolstandard.org/)
+- Thomas, D.R. and Walmsley, A.M. “Improved expression of recombinant plant-made hEGF.” *Plant Cell Reports* (2014). [https://doi.org/10.1007/s00299-014-1658-8](https://doi.org/10.1007/s00299-014-1658-8)
+- Hanittinan, O. et al. “Expression optimization, purification and in vitro characterization of human epidermal growth factor produced in *Nicotiana benthamiana*.” *Biotechnology Reports* (2020). [https://doi.org/10.1016/j.btre.2020.e00524](https://doi.org/10.1016/j.btre.2020.e00524)
+
