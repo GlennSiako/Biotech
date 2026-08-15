@@ -81,6 +81,14 @@ class Observation:
 
 
 @dataclass(frozen=True, slots=True)
+class SelectionObservation:
+    """Minimal experiment history exposed to a selector."""
+
+    design: Design
+    utility: float
+
+
+@dataclass(frozen=True, slots=True)
 class FacilityEvent:
     """One operation on a virtual facility resource."""
 
@@ -131,4 +139,3 @@ class RunReport:
         payload["best_design_id"] = best.design.design_id if best else None
         payload["best_utility"] = round(best.utility, 6) if best else None
         return payload
-

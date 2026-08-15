@@ -13,9 +13,11 @@ from phytoforge.benchmarks.hegf import (
 from phytoforge.domain import (
     CampaignConfig,
     ExperimentResult,
+    FacilityEvent,
     Observation,
     ProcessOutcome,
     RunReport,
+    SelectionObservation,
 )
 from phytoforge.models import BiologyModel, MeasurementModel, ProcessModel
 from phytoforge.optimizer import ExperimentSelector
@@ -51,7 +53,13 @@ class SimulationEngine:
         for round_index in range(config.rounds):
             selected, decision = selector.select(
                 candidates,
-                report.results,
+                [
+                    SelectionObservation(
+                        design=result.design,
+                        utility=result.utility,
+                    )
+                    for result in report.results
+                ],
                 batch_size=config.batch_size,
                 rng=master_rng,
             )
@@ -100,7 +108,7 @@ class SimulationEngine:
 def _observed_utility(
     observation: Observation,
     process: ProcessOutcome,
-    events: tuple,
+    events: tuple[FacilityEvent, ...],
 ) -> float:
     """Compute visible utility without consulting latent biological state."""
 
@@ -117,4 +125,3 @@ def _observed_utility(
         - elapsed_hours / 500.0
         - qc_penalty
     )
-

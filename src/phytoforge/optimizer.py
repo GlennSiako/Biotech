@@ -6,7 +6,7 @@ import math
 import random
 import statistics
 
-from phytoforge.domain import Design, ExperimentResult
+from phytoforge.domain import Design, SelectionObservation
 
 
 class ExperimentSelector:
@@ -20,7 +20,7 @@ class ExperimentSelector:
     def select(
         self,
         candidates: tuple[Design, ...],
-        history: list[ExperimentResult],
+        history: list[SelectionObservation],
         *,
         batch_size: int,
         rng: random.Random,
@@ -37,7 +37,7 @@ class ExperimentSelector:
         if self.strategy == "random" or not history:
             rng.shuffle(remaining)
             selected = remaining[:batch_size]
-            reason = "seeded_random_coverage" if not history else "seeded_random_baseline"
+            reason = "seeded_initial_sample" if not history else "seeded_random_baseline"
         else:
             scored = [
                 (self._adaptive_score(design, history), rng.random(), design)
@@ -57,7 +57,7 @@ class ExperimentSelector:
     @staticmethod
     def _adaptive_score(
         design: Design,
-        history: list[ExperimentResult],
+        history: list[SelectionObservation],
     ) -> float:
         matching = [
             result.utility
@@ -78,4 +78,3 @@ class ExperimentSelector:
 
         exploration = max(1.0, global_spread) / math.sqrt(observations + 1)
         return predicted + 0.75 * exploration
-

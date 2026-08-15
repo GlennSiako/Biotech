@@ -83,4 +83,3 @@ class FacilitySimulator:
             )
             ready = end
         return tuple(events)
-

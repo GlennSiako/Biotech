@@ -264,4 +264,3 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 6. Add an HTTP API and event-stream interface.
 7. Build the virtual biofactory control-room UI.
 8. Calibrate only those model components supported by suitable source-level data.
-

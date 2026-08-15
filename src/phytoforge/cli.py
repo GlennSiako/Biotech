@@ -6,7 +6,7 @@ import argparse
 import json
 from collections.abc import Sequence
 
-from phytoforge.domain import CampaignConfig
+from phytoforge.domain import CampaignConfig, RunReport
 from phytoforge.engine import SimulationEngine
 
 
@@ -61,7 +61,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-def _print_summary(report) -> None:
+def _print_summary(report: RunReport) -> None:
     best = report.best_result
     print("PhytoForge hEGF benchmark")
     print(f"Calibration tier: {report.calibration_tier}")
@@ -90,4 +90,3 @@ def _print_summary(report) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

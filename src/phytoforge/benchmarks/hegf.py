@@ -174,4 +174,3 @@ def _design(
         plant_age_weeks=age,
         harvest_day=harvest,
     )
-

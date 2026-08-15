@@ -65,4 +65,3 @@ class MeasurementModel:
 
 def _clip(value: float, lower: float, upper: float) -> float:
     return min(upper, max(lower, value))
-
