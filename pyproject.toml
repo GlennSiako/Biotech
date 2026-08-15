@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phytoforge"
+version = "0.1.0"
+description = "Simulation-first autonomous biofoundry for plant-made recombinant proteins"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [
+  { name = "PhytoForge contributors" }
+]
+dependencies = []
+
+[project.scripts]
+phytoforge = "phytoforge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

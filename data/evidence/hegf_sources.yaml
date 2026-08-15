@@ -1,0 +1,267 @@
+schema_version: "0.1.0"
+manifest_id: "hegf-evidence-v0"
+benchmark_id: "hegf-nb-transient-v0"
+last_reviewed: "2026-08-15"
+scope:
+  product: "recombinant human epidermal growth factor"
+  short_name: "hEGF"
+  host: "Nicotiana benthamiana"
+  production_mode: "contained transient expression"
+  intended_use: "traceable literature summaries for simulator construction"
+limitations:
+  - "This manifest contains manually extracted study summaries, not harmonized raw data."
+  - "Results from different vector, construct, plant, harvest, and assay contexts are not directly exchangeable."
+  - "Percent total soluble protein is not convertible to mass per fresh weight without additional measurements."
+  - "No entry establishes clinical efficacy, safety, manufacturing suitability, or regulatory acceptability."
+  - "Numerical simulator parameters remain S0 unless a calibration record explicitly links them to source-level data."
+
+evidence_grades:
+  E1: "Direct quantitative result reported by a primary source."
+  E2: "Direct qualitative result reported by a primary source."
+  E3: "Result available only through a secondary source."
+  S0: "Synthetic PhytoForge assumption."
+
+sources:
+  - source_id: "thomas_walmsley_2014"
+    source_type: "peer_reviewed_article"
+    title: "Improved expression of recombinant plant-made hEGF"
+    authors:
+      - "David Rhys Thomas"
+      - "Amanda Maree Walmsley"
+    year: 2014
+    journal: "Plant Cell Reports"
+    volume: "33"
+    pages: "1801-1814"
+    doi: "10.1007/s00299-014-1658-8"
+    canonical_url: "https://doi.org/10.1007/s00299-014-1658-8"
+    metadata_url: "https://research.monash.edu/en/publications/improved-expression-of-recombinant-plant-made-hegf/"
+    review_status: "primary_source_summary_reviewed"
+    access_date: "2026-08-15"
+    study_context:
+      host: "Nicotiana benthamiana"
+      production_mode: "transient expression"
+      product: "hEGF"
+      comparison_dimensions:
+        - "subcellular localization"
+        - "coding adaptation"
+        - "silencing-suppression context"
+        - "plant age"
+    claims:
+      - claim_id: "tw2014_localization_vacuole"
+        evidence_grade: "E2"
+        claim: "Expression was highest in the vacuole-targeted condition among the localization contexts described by the study."
+        eligible_for:
+          - "study-conditioned directional prior"
+          - "literature-emulation check"
+        not_for:
+          - "universal localization ranking"
+      - claim_id: "tw2014_codon_vacuole_34pct"
+        evidence_grade: "E1"
+        claim: "Host-adapted coding increased the vacuole-targeted hEGF yield by approximately 34 percent in the reported comparison."
+        value:
+          estimate: 34
+          unit: "percent relative increase"
+          qualifier: "approximately"
+        eligible_for:
+          - "study-conditioned effect prior"
+        not_for:
+          - "effect transfer to other construct contexts"
+      - claim_id: "tw2014_codon_er_no_gain"
+        evidence_grade: "E2"
+        claim: "The same coding adaptation did not improve the ER-targeted condition in the reported comparison."
+        eligible_for:
+          - "context-interaction check"
+      - claim_id: "tw2014_p19_over_threefold"
+        evidence_grade: "E1"
+        claim: "The silencing-suppression context increased expression by more than threefold in the reported study context."
+        value:
+          lower_bound: 3
+          unit: "fold change"
+          bound_type: "exclusive_lower"
+        eligible_for:
+          - "broad study-conditioned effect prior"
+        not_for:
+          - "exact point calibration"
+      - claim_id: "tw2014_plant_age_five_week"
+        evidence_grade: "E2"
+        claim: "Five-week-old plants produced significantly more hEGF than four- or six-week-old plants in the reported comparison."
+        eligible_for:
+          - "study-conditioned ordinal prior"
+      - claim_id: "tw2014_combined_6_24_tsp"
+        evidence_grade: "E1"
+        claim: "The combined optimized condition produced an average hEGF yield of 6.24 percent of total soluble protein."
+        value:
+          estimate: 6.24
+          unit: "percent total soluble protein"
+          statistic: "average"
+        eligible_for:
+          - "broad literature-emulation interval"
+        not_for:
+          - "cross-study mass conversion"
+          - "commercial yield claim"
+      - claim_id: "tw2014_activity_comparable"
+        evidence_grade: "E2"
+        claim: "Plant-made hEGF promoted mouse keratinocyte proliferation comparably to the commercial E. coli-derived hEGF control used in the study."
+        eligible_for:
+          - "qualitative activity-retention prior"
+        not_for:
+          - "clinical efficacy"
+          - "general assay equivalence"
+
+  - source_id: "hanittinan_et_al_2020"
+    source_type: "peer_reviewed_article"
+    title: "Expression optimization, purification and in vitro characterization of human epidermal growth factor produced in Nicotiana benthamiana"
+    authors:
+      - "Oranicha Hanittinan"
+      - "Yamin Oo"
+      - "Chatchai Chaotham"
+      - "Kaewta Rattanapisit"
+      - "Balamurugan Shanmugaraj"
+      - "Waranyoo Phoolcharoen"
+    year: 2020
+    journal: "Biotechnology Reports"
+    volume: "28"
+    article_number: "e00524"
+    doi: "10.1016/j.btre.2020.e00524"
+    pmid: "32953470"
+    pmcid: "PMC7486445"
+    canonical_url: "https://doi.org/10.1016/j.btre.2020.e00524"
+    pubmed_url: "https://pubmed.ncbi.nlm.nih.gov/32953470/"
+    review_status: "primary_source_reviewed"
+    access_date: "2026-08-15"
+    study_context:
+      host: "Nicotiana benthamiana"
+      production_mode: "transient geminiviral expression"
+      product: "hEGF"
+      construct_count: 6
+      harvest_observation_days_post_introduction:
+        - 2
+        - 4
+        - 6
+      comparison_dimensions:
+        - "subcellular targeting"
+        - "affinity-tag position"
+        - "ER-retention context"
+        - "harvest observation time"
+        - "downstream extraction context"
+    claims:
+      - claim_id: "h2020_er_c_terminal_best"
+        evidence_grade: "E2"
+        claim: "The ER-targeted, C-terminal-His-tagged configuration had the highest expression among the six constructs tested."
+        eligible_for:
+          - "study-conditioned ordinal prior"
+          - "six-design reconstruction"
+        not_for:
+          - "universal localization ranking"
+      - claim_id: "h2020_yield_15_695_ug_g_lfw"
+        evidence_grade: "E1"
+        claim: "The best reported construct reached 15.695 micrograms hEGF per gram leaf fresh weight."
+        value:
+          estimate: 15.695
+          unit: "microgram per gram leaf fresh weight"
+        eligible_for:
+          - "study-conditioned literature-emulation interval"
+        not_for:
+          - "commercial-scale yield claim"
+      - claim_id: "h2020_yield_0_499_tsp"
+        evidence_grade: "E1"
+        claim: "The same reported condition corresponded to 0.499 percent of total soluble protein."
+        value:
+          estimate: 0.499
+          unit: "percent total soluble protein"
+        eligible_for:
+          - "study-conditioned literature-emulation interval"
+        not_for:
+          - "fixed conversion between yield units"
+      - claim_id: "h2020_harvest_observation_window"
+        evidence_grade: "E1"
+        claim: "The study evaluated expression observations at 2, 4, and 6 days post-introduction."
+        value:
+          values:
+            - 2
+            - 4
+            - 6
+          unit: "day post-introduction"
+        eligible_for:
+          - "study scenario definition"
+      - claim_id: "h2020_affinity_capture"
+        evidence_grade: "E2"
+        claim: "Tagged plant-produced hEGF was recovered using nickel-affinity chromatography and evaluated by electrophoretic and immunodetection methods."
+        eligible_for:
+          - "abstract downstream process graph"
+        not_for:
+          - "step recovery calibration without source-level measurements"
+      - claim_id: "h2020_acidic_extraction_preliminary"
+        evidence_grade: "E2"
+        claim: "Preliminary results suggested that acidic extraction could reduce plant host-protein carryover, including RuBisCO."
+        eligible_for:
+          - "uncertain qualitative impurity-removal prior"
+        not_for:
+          - "validated purification law"
+      - claim_id: "h2020_ammonium_not_supported"
+        evidence_grade: "E2"
+        claim: "Ammonium-sulfate precipitation was not supported as an effective host-protein-removal improvement in the reported study."
+        eligible_for:
+          - "negative directional constraint"
+      - claim_id: "h2020_hacat_no_added_cytotoxicity"
+        evidence_grade: "E2"
+        claim: "Plant-produced hEGF showed no additional cytotoxic effect relative to the commercial control under the reported HaCaT assay conditions."
+        eligible_for:
+          - "source-specific qualitative assay check"
+        not_for:
+          - "safety claim"
+          - "clinical inference"
+
+  - source_id: "hanittinan_thesis_2020"
+    source_type: "masters_thesis"
+    title: "Development of recombinant human epidermal growth factor production in Nicotiana benthamiana"
+    authors:
+      - "Oranicha Hanittinan"
+    year: 2020
+    institution: "Chulalongkorn University"
+    doi: "10.58837/CHULA.THE.2020.374"
+    canonical_url: "https://doi.org/10.58837/CHULA.THE.2020.374"
+    relationship:
+      expands_source: "hanittinan_et_al_2020"
+    review_status: "primary_thesis_reviewed_for_context"
+    access_date: "2026-08-15"
+    eligible_for:
+      - "study-design context"
+      - "construct and assay metadata"
+      - "cross-checking article summaries"
+    not_for:
+      - "independent replication of the related article"
+
+  - source_id: "peyret_et_al_2026_review"
+    source_type: "peer_reviewed_review"
+    title: "Plant molecular farming for pharmaceuticals: the state of the art"
+    authors:
+      - "Hadrien Peyret et al."
+    year: 2026
+    journal: "npj Science of Plants"
+    doi: "10.1038/s44383-026-00035-7"
+    canonical_url: "https://www.nature.com/articles/s44383-026-00035-7"
+    review_status: "review_source_context_only"
+    access_date: "2026-08-15"
+    eligible_for:
+      - "field context"
+      - "host and production-mode rationale"
+    not_for:
+      - "hEGF parameter calibration"
+
+known_evidence_gaps:
+  - gap_id: "raw_replicates"
+    description: "Source-level replicate tables suitable for hierarchical calibration have not yet been assembled."
+    consequence: "Version 0 cannot estimate biological variance from these summaries."
+  - gap_id: "yield_unit_bridge"
+    description: "No validated conversion between percent total soluble protein and mass per fresh weight is available across study contexts."
+    consequence: "The two outcome types remain jointly modeled but separately observed."
+  - gap_id: "downstream_mass_balance"
+    description: "Step-level target recovery and impurity-removal measurements are incomplete."
+    consequence: "Extraction and purification efficiencies remain synthetic priors."
+  - gap_id: "activity_standardization"
+    description: "Activity evidence comes from study-specific cell assays with different designs and controls."
+    consequence: "Version 0 uses an activity-retention proxy rather than a calibrated potency model."
+  - gap_id: "prospective_validation"
+    description: "No blinded prospective partner dataset exists."
+    consequence: "The benchmark cannot exceed calibration tier S1."
