@@ -45,8 +45,10 @@ Implementation directories will be introduced only after the model interfaces an
 
 ## Naming
 
-**Product name:** PhytoForge  
-**Category:** autonomous plant molecular-farming software  
+**Product name:** PhytoForge
+
+**Category:** autonomous plant molecular-farming software
+
 **Working tagline:** Program plants. Simulate production. Learn from every run.
 
 “PhytoForge” is a working product name and must undergo trademark and domain review before public commercial use.

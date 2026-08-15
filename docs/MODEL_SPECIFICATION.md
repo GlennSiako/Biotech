@@ -929,4 +929,3 @@ Those questions require experimental evidence and qualified review.
 - U.S. Food and Drug Administration. Elelyso approval summary (2012). <https://www.accessdata.fda.gov/drugsatfda_docs/nda/2012/022458Orig1s000SumR.pdf>
 - Synthetic Biology Open Language (SBOL). <https://sbolstandard.org/>
 - Systems Biology Markup Language (SBML). <https://sbml.org/>
-

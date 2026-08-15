@@ -467,4 +467,3 @@ The MVP is complete when a user can:
 - Peyret, H. et al. “Plant molecular farming for pharmaceuticals: the state of the art.” *npj Science of Plants* (2026). <https://www.nature.com/articles/s44383-026-00035-7>
 - U.S. Food and Drug Administration. Elelyso approval summary (2012). <https://www.accessdata.fda.gov/drugsatfda_docs/nda/2012/022458Orig1s000SumR.pdf>
 - Synthetic Biology Open Language (SBOL). <https://sbolstandard.org/>
-
