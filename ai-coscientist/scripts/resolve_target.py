@@ -52,8 +52,7 @@ def print_candidates(candidates, top: int) -> None:
         print(f"\n {marker} {i}. {c.pdb_id}  score {c.score:.2f}  [{c.method}, {res}]")
         if c.title:
             print(f"       {c.title}")
-        if c.partners:
-            print(f"       entities: {'; '.join(c.partners)}")
+
         for note in c.notes:
             print(f"       - {note}")
 
@@ -67,7 +66,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--organism", type=int, default=9606, help="NCBI taxon id")
     ap.add_argument("--top", type=int, default=5, help="candidates to display")
     ap.add_argument("--no-enrich", action="store_true",
-                    help="skip RCSB enrichment (faster; complex status unknown)")
+                    help="skip RCSB enrichment (faster; partners unknown)")
+    ap.add_argument("--enrich", type=int, default=15,
+                    help="how many top candidates to enrich with RCSB detail "
+                         "(costs ~1 request per entry plus one per entity)")
     ap.add_argument("--prepare", action="store_true",
                     help="fetch and prepare the top-ranked structure")
     ap.add_argument("--chain", default=None,
@@ -113,16 +115,21 @@ def main(argv: list[str] | None = None) -> int:
 
     # Rank once to shortlist, enrich the shortlist, then re-rank: enrichment
     # supplies the complex flag, which carries the heaviest weight.
-    ranked = rank(candidates, args.region)
+    ranked = rank(candidates, args.region, target.accession)
     if not args.no_enrich:
-        enrich(ranked, limit=max(args.top, 5))
-        ranked = rank(ranked, args.region)
+        enrich(ranked, target_accession=target.accession, limit=max(args.top, args.enrich))
+        ranked = rank(ranked, args.region, target.accession)
 
     manifest.candidates = [c.to_dict() for c in ranked]
     print_candidates(ranked, args.top)
 
     best = ranked[0]
     manifest.chosen = best.to_dict()
+
+    if not best.protein_partners and not args.no_enrich:
+        print("\nNOTE: the top structure has no protein binding partner. The "
+              "epitope will have to be predicted rather than read from an "
+              "observed interface (see D-010).")
 
     if args.prepare:
         chain = args.chain or (best.coverage.chains[0] if best.coverage.chains else None)

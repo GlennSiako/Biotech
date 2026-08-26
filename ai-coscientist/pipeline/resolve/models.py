@@ -46,6 +46,41 @@ class ChainCoverage:
         return self.end - self.start + 1
 
 
+# Below this length a polymer entity is a peptide ligand, not a protein partner.
+# PD-1's ectodomain is ~110 residues and designed mini-binders start around 50;
+# macrocyclic peptide inhibitors are ~10-20.
+MIN_PROTEIN_LENGTH = 40
+
+
+@dataclass(frozen=True)
+class Partner:
+    """A polymer entity in a structure that is not the target itself.
+
+    What kind of partner it is decides whether the structure shows an interface
+    worth designing against. A co-crystallised macrocycle marks a druggable spot
+    but says nothing about where a *protein* binder should bind.
+    """
+
+    description: str
+    uniprot: str | None = None
+    length: int | None = None
+    polymer_type: str | None = None
+
+    @property
+    def kind(self) -> str:
+        if self.polymer_type and "polypeptide" not in self.polymer_type.lower():
+            return "nucleic acid"
+        if self.length is not None and self.length < MIN_PROTEIN_LENGTH:
+            return "peptide ligand"
+        if self.uniprot:
+            return "natural protein"
+        return "engineered protein"
+
+    @property
+    def is_protein(self) -> bool:
+        return self.kind in ("natural protein", "engineered protein")
+
+
 @dataclass
 class StructureCandidate:
     """A PDB entry that might serve as the working structure for a target.
@@ -59,19 +94,32 @@ class StructureCandidate:
     resolution: float | None        # angstroms; None for NMR
     coverage: ChainCoverage
     title: str | None = None
-    n_polymer_entities: int | None = None   # >1 suggests a complex
-    partners: tuple[str, ...] = ()          # other polymers in the entry
+    n_polymer_entities: int | None = None   # >1 means more than one polymer
+    partners: tuple[Partner, ...] = ()      # polymer entities other than the target
+    enriched: bool = False                  # RCSB detail actually retrieved
     score: float = 0.0
     notes: list[str] = field(default_factory=list)
 
     @property
-    def is_complex(self) -> bool | None:
-        """True if the entry contains a binding partner, None if not yet known."""
-        if self.n_polymer_entities is None:
+    def protein_partners(self) -> tuple[Partner, ...]:
+        """Partners that are actual proteins, not ligands or nucleic acids."""
+        return tuple(p for p in self.partners if p.is_protein)
+
+    @property
+    def has_protein_partner(self) -> bool | None:
+        """True if a genuine protein partner is present, None if not yet known.
+
+        Deliberately not "more than one polymer entity". A macrocyclic peptide
+        inhibitor is a polymer entity and counted as one by RCSB, but the
+        interface it reveals is a drug-binding site, not a protein-protein
+        epitope. Ranking on entity count alone selected exactly those structures.
+        """
+        if not self.enriched:
             return None
-        return self.n_polymer_entities > 1
+        return bool(self.protein_partners)
 
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)
-        d["is_complex"] = self.is_complex
+        d["has_protein_partner"] = self.has_protein_partner
+        d["partner_kinds"] = [p.kind for p in self.partners]
         return d

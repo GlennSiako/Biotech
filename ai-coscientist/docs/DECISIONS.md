@@ -352,3 +352,51 @@ consumer card is roughly 5–6× this throughput and a datacentre card
 substantially more, so sustained training on the laptop would be slow rather
 than impossible — slow enough that hourly rental pays for itself immediately.
 Batch-size planning uses the 6.7GB figure, not 8GB.
+
+---
+
+## D-014 — Rank on partner *kind*, not on polymer entity count (2026-08-26)
+
+**Prompted by the first live run of stage 1.**
+
+**What happened.** Ranking gave a co-complex bonus to any entry with more than
+one polymer entity. Run against PD-L1 this put `5O45` (0.99 A, partner: a
+14-residue macrocyclic peptide inhibitor) and `8ALX` (1.10 A, a small-molecule
+inhibitor) at the top, above the PD-1 complexes. Every note the pipeline printed
+was accurate; the conclusion was wrong.
+
+**Why it matters.** Those structures show a *drug-binding site*. For protein
+binder design the interface we need is the one PD-1 occupies. Worse, several
+PD-L1 small-molecule inhibitors act by inducing PD-L1 to homodimerise, so the
+"observed interface" in such an entry is the target against itself. Nothing
+downstream would have reported a problem — the campaign would simply have
+designed binders against the wrong surface.
+
+**Decision.** Partners are classified and scored by kind, using polymer length,
+polymer type, and the UniProt cross-reference:
+
+| Kind | Bonus | Meaning |
+|------|-------|---------|
+| natural protein | +4.0 | a real biological partner — the interface we want |
+| engineered protein | +3.0 | nanobody or designed binder; still protein-protein |
+| peptide ligand (<40 aa) | +1.0 | marks a druggable hotspot, not a protein epitope |
+| homodimer (same accession) | +0.5 | self-association, often inhibitor-induced |
+| nucleic acid | +0.0 | |
+
+The target's own entity is excluded before partners are counted.
+
+**Rules out.** Treating "more than one polymer entity" as evidence of a usable
+interface. A description is not enough either:
+`PHE-MEA-9KK-SAR-ASP-VAL-...` reads like nothing in particular and is a drug.
+
+**Wrong if.** The 40-residue threshold misclassifies something real. A designed
+mini-binder can be ~50 aa, so the margin is not large; if short designed binders
+start appearing as partners, the threshold needs revisiting rather than
+widening.
+
+**General lesson, recorded because it will recur.** This is the same failure
+shape as D-010's epitope risk, arriving two stages earlier than expected: not a
+crash, but a confident answer to the wrong question. Every stage where the agent
+picks one item from several needs an explicit account of *why the alternatives
+lost*, and a guard that refuses rather than guesses. The ambiguity guard at
+UniProt resolution caught its case; the ranking had no equivalent and did not.

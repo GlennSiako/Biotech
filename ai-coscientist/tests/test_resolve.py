@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from fixtures import UNIPROT_PAYLOAD
-from pipeline.resolve.models import ChainCoverage, StructureCandidate
+from pipeline.resolve.models import ChainCoverage, Partner, StructureCandidate
 from pipeline.resolve.ranking import rank, score_candidate
-from pipeline.resolve.rcsb import parse_entity_name, parse_entry
+from pipeline.resolve.rcsb import parse_entity, parse_entity_name, parse_entry
 from pipeline.resolve.uniprot import (
     ResolutionError, _parse_coverage, _parse_resolution, build_queries,
     parse_structures, parse_target,
@@ -121,28 +121,77 @@ def test_rcsb_parsing_tolerates_missing_fields():
 
 # --- Ranking ---------------------------------------------------------------
 
-def _candidate(pdb_id, method="X-ray", resolution=2.0, start=18, end=134, entities=None):
-    return StructureCandidate(pdb_id, method, resolution,
-                              ChainCoverage(("A",), start, end),
-                              n_polymer_entities=entities)
+TARGET = "Q9NZQ7"          # PD-L1
+PD1 = Partner("Programmed cell death protein 1", "Q15116", 110, "polypeptide(L)")
+MACROCYCLE = Partner("PHE-MEA-9KK-SAR-ASP-VAL-MEA-TYR", None, 14, "polypeptide(L)")
+NANOBODY = Partner("single-domain antibody", None, 125, "polypeptide(L)")
+SELF = Partner("Programmed cell death 1 ligand 1", TARGET, 120, "polypeptide(L)")
 
 
-def test_complex_outranks_better_resolved_monomer():
-    """A co-complex gives an observed interface, which D-010 prefers over a
-    predicted one -- even at the cost of some resolution."""
-    complexed = _candidate("CPLX", resolution=2.8, entities=2)
-    monomer = _candidate("MONO", resolution=1.8, entities=1)
-    assert rank([monomer, complexed])[0].pdb_id == "CPLX"
+def _candidate(pdb_id, method="X-ray", resolution=2.0, start=18, end=134,
+               partners=(), enriched=True):
+    c = StructureCandidate(pdb_id, method, resolution,
+                           ChainCoverage(("A",), start, end),
+                           n_polymer_entities=1 + len(partners))
+    c.partners = tuple(partners)
+    c.enriched = enriched
+    return c
+
+
+def test_protein_complex_outranks_better_resolved_monomer():
+    """A real protein interface is worth more than resolution: D-010 requires
+    preferring an observed interface over a predicted one."""
+    complexed = _candidate("CPLX", resolution=2.8, partners=[PD1])
+    monomer = _candidate("MONO", resolution=1.8)
+    assert rank([monomer, complexed], target_accession=TARGET)[0].pdb_id == "CPLX"
+
+
+def test_protein_partner_outranks_macrocycle_inhibitor():
+    """The bug the first live run exposed.
+
+    Ranking on polymer-entity count put a 0.99 A PD-L1/macrocycle structure above
+    the PD-1 complex. A macrocyclic inhibitor is a polymer entity, but the
+    interface it reveals is a drug-binding site, not a protein-protein epitope.
+    """
+    drug = _candidate("5O45", resolution=0.99, partners=[MACROCYCLE])
+    real = _candidate("4ZQK", resolution=2.45, partners=[PD1])
+    ranked = rank([drug, real], region=(18, 134), target_accession=TARGET)
+    assert ranked[0].pdb_id == "4ZQK"
+    assert any("drug-binding site" in n for n in ranked[1].notes)
+
+
+def test_homodimer_is_not_counted_as_a_partner_interface():
+    """Several PD-L1 inhibitors work by inducing homodimerisation; the observed
+    interface is then the target against itself."""
+    dimer = _candidate("DIMR", resolution=1.8, partners=[SELF])
+    real = _candidate("4ZQK", resolution=2.45, partners=[PD1])
+    ranked = rank([dimer, real], target_accession=TARGET)
+    assert ranked[0].pdb_id == "4ZQK"
+    demoted = next(c for c in ranked if c.pdb_id == "DIMR")
+    assert any("self-association" in n for n in demoted.notes)
+
+
+def test_engineered_protein_binder_counts_as_a_protein_interface():
+    nb = _candidate("NANO", resolution=2.0, partners=[NANOBODY])
+    assert nb.protein_partners == (NANOBODY,)
+    assert any("protein-protein interface" in n
+               for n in rank([nb], target_accession=TARGET)[0].notes)
+
+
+def test_peptide_ligand_is_not_a_protein_partner():
+    drug = _candidate("5O45", partners=[MACROCYCLE])
+    assert drug.protein_partners == ()
+    assert drug.has_protein_partner is False
 
 
 def test_xray_outranks_nmr():
-    ranked = rank([_candidate("NMRX", method="NMR", resolution=None, entities=1),
-                   _candidate("XRAY", entities=1)])
+    ranked = rank([_candidate("NMRX", method="NMR", resolution=None),
+                   _candidate("XRAY")])
     assert ranked[0].pdb_id == "XRAY"
 
 
 def test_low_resolution_is_flagged():
-    scored = score_candidate(_candidate("LOWR", resolution=3.6, entities=1))
+    scored = score_candidate(_candidate("LOWR", resolution=3.6))
     assert any("side chains unreliable" in n for n in scored.notes)
 
 
@@ -153,10 +202,30 @@ def test_partial_coverage_scores_lower_and_warns():
     assert any("does not fully cover" in n for n in part.notes)
 
 
-def test_unknown_complex_status_is_stated_not_assumed():
-    scored = score_candidate(_candidate("UNKN", entities=None))
-    assert any("complex status unknown" in n for n in scored.notes)
-    assert scored.is_complex is None
+def test_unenriched_candidate_states_partners_are_unknown():
+    scored = score_candidate(_candidate("UNKN", enriched=False))
+    assert any("partners unknown" in n for n in scored.notes)
+    assert scored.has_protein_partner is None
+
+
+def test_parses_partner_from_entity_payload():
+    partner = parse_entity({
+        "rcsb_polymer_entity": {"pdbx_description": "Programmed cell death protein 1"},
+        "entity_poly": {"rcsb_sample_sequence_length": 110, "type": "polypeptide(L)"},
+        "rcsb_polymer_entity_container_identifiers": {
+            "reference_sequence_identifiers": [
+                {"database_name": "UniProt", "database_accession": "Q15116"}]},
+    })
+    assert partner.uniprot == "Q15116" and partner.length == 110
+    assert partner.kind == "natural protein"
+
+
+def test_short_polymer_is_classified_as_a_peptide_ligand():
+    partner = parse_entity({
+        "rcsb_polymer_entity": {"pdbx_description": "PHE-MEA-9KK-SAR"},
+        "entity_poly": {"rcsb_sample_sequence_length": 14, "type": "polypeptide(L)"},
+    })
+    assert partner.kind == "peptide ligand" and not partner.is_protein
 
 
 def test_every_candidate_carries_its_reasoning():
@@ -166,6 +235,6 @@ def test_every_candidate_carries_its_reasoning():
 
 def test_ranking_is_deterministic():
     """Runs must be replayable from a manifest, so ties cannot break arbitrarily."""
-    candidates = [_candidate(x, entities=1) for x in ("BBBB", "AAAA", "CCCC")]
+    candidates = [_candidate(x) for x in ("BBBB", "AAAA", "CCCC")]
     assert [c.pdb_id for c in rank(list(candidates))] == \
            [c.pdb_id for c in rank(list(reversed(candidates)))]

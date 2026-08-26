@@ -13,7 +13,7 @@ requires us to prefer known interfaces over predicted ones wherever they exist.
 
 from __future__ import annotations
 
-from .models import StructureCandidate
+from .models import Partner, StructureCandidate
 
 # Experimental method. NMR scores zero rather than negative: usable if nothing
 # else exists, but ensemble models give poor interface geometry.
@@ -21,7 +21,19 @@ METHOD_SCORES = {"X-ray": 3.0, "EM": 2.5, "Neutron": 2.0, "NMR": 0.0, "Model": -
 
 RESOLUTION_BANDS = ((2.0, 3.0), (2.5, 2.5), (3.0, 2.0), (3.5, 1.0))
 COVERAGE_WEIGHT = 3.0
-COMPLEX_BONUS = 4.0
+
+# What kind of partner is present matters more than whether one is present.
+# Ranking on entity count alone put PD-L1/macrocycle and PD-L1/small-molecule
+# structures at the top of the list for a protein binder campaign: those are
+# drug-binding sites, and several PD-L1 inhibitors work by inducing the protein
+# to homodimerise, so the observed interface is the target against itself.
+PARTNER_BONUS = {
+    "natural protein": 4.0,     # a real biological partner -- the interface we want
+    "engineered protein": 3.0,  # nanobody or designed binder; still protein-protein
+    "peptide ligand": 1.0,      # marks a druggable hotspot, not a protein epitope
+    "homodimer": 0.5,           # self-association, often inhibitor-induced
+    "nucleic acid": 0.0,
+}
 
 # Below this resolution, side-chain positions at an interface are unreliable.
 RESOLUTION_WARN = 3.0
@@ -56,8 +68,15 @@ def _coverage_fraction(candidate: StructureCandidate,
     return max(0.0, overlap) / (hi - lo + 1)
 
 
+def _classify(partner: Partner, target_accession: str | None) -> str:
+    if target_accession and partner.uniprot == target_accession:
+        return "homodimer"
+    return partner.kind
+
+
 def score_candidate(candidate: StructureCandidate,
-                    region: tuple[int, int] | None = None) -> StructureCandidate:
+                    region: tuple[int, int] | None = None,
+                    target_accession: str | None = None) -> StructureCandidate:
     """Score one candidate in place, recording the reasoning in `notes`."""
     notes: list[str] = []
     score = 0.0
@@ -87,14 +106,28 @@ def score_candidate(candidate: StructureCandidate,
         if fraction < 1.0:
             notes.append("WARNING: does not fully cover the region of interest")
 
-    if candidate.is_complex:
-        score += COMPLEX_BONUS
-        notes.append(f"co-complex, {candidate.n_polymer_entities} polymer "
-                     f"entities ({COMPLEX_BONUS:+.1f}) — observed interface available")
-    elif candidate.is_complex is False:
-        notes.append("single polymer entity (+0.0) — epitope must be predicted")
+    if not candidate.enriched:
+        notes.append("partners unknown (+0.0) — not enriched from RCSB")
+    elif not candidate.partners:
+        notes.append("no binding partner (+0.0) — epitope must be predicted")
     else:
-        notes.append("complex status unknown (+0.0) — not enriched from RCSB")
+        kinds = [(p, _classify(p, target_accession)) for p in candidate.partners]
+        best_kind = max(kinds, key=lambda pk: PARTNER_BONUS.get(pk[1], 0.0))
+        bonus = PARTNER_BONUS.get(best_kind[1], 0.0)
+        score += bonus
+        for partner, kind in kinds:
+            length = f", {partner.length} aa" if partner.length else ""
+            notes.append(f"partner: {partner.description[:60]} [{kind}{length}]")
+        if best_kind[1] in ("natural protein", "engineered protein"):
+            notes.append(f"protein-protein interface observed ({bonus:+.1f})")
+        elif best_kind[1] == "peptide ligand":
+            notes.append(f"only peptide/ligand partners ({bonus:+.1f}) — this is a "
+                         "drug-binding site, not a protein-protein epitope")
+        elif best_kind[1] == "homodimer":
+            notes.append(f"self-association only ({bonus:+.1f}) — often "
+                         "inhibitor-induced, not a partner interface")
+        else:
+            notes.append(f"no protein partner ({bonus:+.1f})")
 
     candidate.score = round(score, 2)
     candidate.notes = notes
@@ -102,13 +135,14 @@ def score_candidate(candidate: StructureCandidate,
 
 
 def rank(candidates: list[StructureCandidate],
-         region: tuple[int, int] | None = None) -> list[StructureCandidate]:
+         region: tuple[int, int] | None = None,
+         target_accession: str | None = None) -> list[StructureCandidate]:
     """Score and sort candidates, best first.
 
     Ties break on resolution, then PDB ID, so the ordering is deterministic —
     a run must be replayable from its manifest (PROJECT_PLAN.md section 5.2).
     """
-    scored = [score_candidate(c, region) for c in candidates]
+    scored = [score_candidate(c, region, target_accession) for c in candidates]
     return sorted(
         scored,
         key=lambda c: (-c.score, c.resolution if c.resolution is not None else 99.0, c.pdb_id),

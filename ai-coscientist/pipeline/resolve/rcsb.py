@@ -18,7 +18,7 @@ from typing import Any
 
 import requests
 
-from .models import StructureCandidate
+from .models import Partner, StructureCandidate
 
 log = logging.getLogger(__name__)
 
@@ -47,22 +47,55 @@ def parse_entry(payload: dict[str, Any]) -> tuple[str | None, int | None, list[s
     return title, (int(count) if count is not None else None), [str(i) for i in ids]
 
 
+def parse_entity(payload: dict[str, Any]) -> Partner:
+    """Build a Partner from a polymer entity payload.
+
+    Length, polymer type, and the UniProt cross-reference together separate a
+    real protein partner from a co-crystallised peptide or nucleic acid. The
+    description alone does not: "PHE-MEA-9KK-SAR-ASP-VAL-..." is a macrocyclic
+    inhibitor and reads like nothing in particular.
+    """
+    entity = payload.get("rcsb_polymer_entity") or {}
+    poly = payload.get("entity_poly") or {}
+    ids = payload.get("rcsb_polymer_entity_container_identifiers") or {}
+
+    uniprot = None
+    for ref in ids.get("reference_sequence_identifiers") or []:
+        if (ref.get("database_name") or "").lower() == "uniprot":
+            uniprot = ref.get("database_accession")
+            break
+
+    length = poly.get("rcsb_sample_sequence_length")
+    return Partner(
+        description=entity.get("pdbx_description") or "unnamed entity",
+        uniprot=uniprot,
+        length=int(length) if length is not None else None,
+        polymer_type=poly.get("type"),
+    )
+
+
 def parse_entity_name(payload: dict[str, Any]) -> str | None:
+    """Backwards-compatible accessor for an entity's description."""
     return (payload.get("rcsb_polymer_entity") or {}).get("pdbx_description")
 
 
 def enrich(
     candidates: list[StructureCandidate],
     *,
+    target_accession: str | None = None,
     limit: int = DEFAULT_SHORTLIST,
     session: requests.Session | None = None,
     timeout: float = 30.0,
-    fetch_partners: bool = True,
 ) -> list[StructureCandidate]:
     """Enrich the first `limit` candidates in place with RCSB entry detail.
 
-    `limit` exists because entry-level enrichment is only needed to choose among
-    plausible candidates; enriching a hundred entries to pick one wastes calls.
+    `target_accession` identifies the target's own entity so it is not counted as
+    its own binding partner. Without it, an entity sharing the target's UniProt
+    accession is reported as a homodimer partner, which is true but is a
+    different claim from "a partner protein binds here".
+
+    `limit` exists because enrichment costs one request per entry plus one per
+    polymer entity; enriching seventy entries to choose one wastes calls.
     """
     sess = session or requests.Session()
 
@@ -74,18 +107,23 @@ def enrich(
         title, count, entity_ids = parse_entry(payload)
         candidate.title = title
         candidate.n_polymer_entities = count
+        candidate.enriched = True
 
-        if fetch_partners and count and count > 1:
-            names: list[str] = []
-            for entity_id in entity_ids:
-                entity = _get_json(
-                    RCSB_ENTITY.format(pdb_id=candidate.pdb_id, entity_id=entity_id),
-                    sess, timeout,
-                )
-                if entity is not None:
-                    name = parse_entity_name(entity)
-                    if name:
-                        names.append(name)
-            candidate.partners = tuple(names)
+        partners: list[Partner] = []
+        for entity_id in entity_ids:
+            entity = _get_json(
+                RCSB_ENTITY.format(pdb_id=candidate.pdb_id, entity_id=entity_id),
+                sess, timeout,
+            )
+            if entity is None:
+                continue
+            partner = parse_entity(entity)
+            # Skip the target's own entity; keep everything else, including a
+            # second copy of the target, which is flagged as a homodimer.
+            if target_accession and partner.uniprot == target_accession and not partners:
+                continue
+            partners.append(partner)
+
+        candidate.partners = tuple(partners)
 
     return candidates
