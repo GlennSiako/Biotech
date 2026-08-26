@@ -33,6 +33,12 @@ uname -r          # expect a WSL2 kernel
 nvidia-smi        # should show the RTX 5070 from inside Linux
 ```
 
+Run `wsl --install` / `wsl --update` in **PowerShell**, not inside WSL — they are
+Windows commands and will report `command not found` from a Linux shell.
+
+**Check `nvidia-smi` from inside WSL before installing PyTorch.** It confirms the
+driver passthrough works, and separates a driver problem from a torch problem.
+
 ### The one thing that breaks this
 
 **Do not install an NVIDIA driver inside WSL2.** The Windows driver already
@@ -131,3 +137,5 @@ instances too, so both environments run identical code.
 | `torch.cuda.is_available()` is `False` | Stale driver, or CPU-only wheel | Check `torch.version.cuda` is not `None` |
 | Out of memory at modest batch size | 8GB is genuinely small | Expected — reduce batch size and use gradient accumulation; real training belongs on Vast.ai (D-013) |
 | Data preparation is extremely slow | Working under `/mnt/c/` | Move the project into the WSL filesystem (§3) |
+| `ensurepip is not available` when creating the venv | `python3.12-venv` not installed | Install it (§3), then **`rm -rf .venv`** before retrying — the half-built venv has no pip and reusing it fails confusingly |
+| `wsl: command not found` | `wsl` is a Windows command | Run it in PowerShell, not inside WSL |
