@@ -292,3 +292,51 @@ the same interface, at the cost of G1 time only.
 
 **Rules out.** Nothing permanently. The generator interface (D-004) is what
 protects this decision from being expensive to reverse.
+
+---
+
+## D-013 — Local machine is a development box, not a training box (2026-08-26)
+
+**Confirms D-011.** Local hardware measured: **NVIDIA RTX 5070 Laptop, 8GB
+VRAM, 50W power cap, Blackwell (sm_120), driver 596.08 / CUDA 13.2, Windows
+WDDM.**
+
+**Decision.** Training runs go to Vast.ai as already decided. The local machine
+takes a defined and genuinely useful role rather than being sidelined.
+
+**Why.** 8GB VRAM caps model and batch size below what G1 needs, and a 50W
+laptop part throttles under sustained load — a multi-day run would be both slow
+and unreliable. Neither problem affects development work.
+
+**Division of labour.**
+
+| Local | Vast.ai |
+|-------|---------|
+| All of Phases 1–2 (no GPU required regardless) | G1 / G2 / G3 training runs |
+| Data preparation, structural clustering, dataset staging | Any sustained or memory-hungry job |
+| Code development and debugging | |
+| Overfit-one-batch sanity tests | |
+| Sampling / inference from trained checkpoints | |
+| G0 hallucination runs at small scale | |
+
+**Practice: overfit locally before renting.** Training on a single batch until
+loss approaches zero catches most training bugs — shape errors, broken masking,
+a loss not wired to the parameters — and fits comfortably in 8GB. Rental time
+is then spent on training, not debugging.
+
+**Setup constraints this imposes.**
+
+1. **Blackwell requires current PyTorch.** `sm_120` kernels ship in builds
+   against CUDA 12.8 and later; an older pinned wheel will not run on this card.
+   Local and Vast.ai environments must be pinned *together*, or code that works
+   in one place fails in the other.
+2. **WSL2 recommended over native Windows.** The structural biology toolchain is
+   Linux-first, and WSL2 makes the local and rental environments near-identical
+   — which is what keeps the dev/train split from drifting into two codebases.
+3. **Training code must be scale-agnostic.** Batch size, gradient accumulation,
+   and precision come from config, so the same script runs an 8GB sanity check
+   and a rented card unchanged.
+
+**Wrong if.** G1 turns out to fit in 8GB after all, in which case short local
+runs become viable and rental is reserved for G2/G3. Worth re-testing once the
+model is sized.

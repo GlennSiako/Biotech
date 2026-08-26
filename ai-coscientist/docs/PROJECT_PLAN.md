@@ -309,10 +309,12 @@ the generator before the scoreboard exists means training blind.
    calibrating interface metrics in Phase 2. PARP1 becomes campaign two,
    retargeted onto a protein interaction surface rather than its catalytic
    pocket.
-2. ~~**Compute budget.**~~ **RESOLVED (D-011): hourly GPU rental on Vast.ai**
-   for training runs. Phases 1–2 need essentially no GPU regardless. Requires
-   checkpoints synced off-instance, since marketplace instances can be
-   reclaimed.
+2. ~~**Compute budget.**~~ **RESOLVED (D-011, D-013): hourly GPU rental on
+   Vast.ai** for training runs; local RTX 5070 Laptop (8GB, 50W) serves as the
+   development box — Phases 1–2, data prep, debugging, and overfit-one-batch
+   sanity tests before any rental time is spent. Requires checkpoints synced
+   off-instance and PyTorch pinned for Blackwell `sm_120` across both
+   environments.
 3. **Binder class.** Unconstrained mini-binders (50–120 aa) versus a fixed
    scaffold class. Unconstrained is more general; scaffolded is far easier to
    validate and express.
