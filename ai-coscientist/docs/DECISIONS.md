@@ -439,3 +439,53 @@ enrichment. In all three the pipeline ran clean and reported confidently; only
 the question was wrong. Two rules are now earning their keep: *account for why
 the alternatives lost*, and *never let an optimisation decide what gets
 evaluated*.
+
+---
+
+## D-016 — Score partner species and engineered mutations (2026-08-26)
+
+**Prompted by the third live run of stage 1. Fourth instance of the D-014 shape.**
+
+**What happened.** With enrichment fixed by D-015, PD-1 complexes reached the
+top — but the winner was `3SBW`, *"complex between the extracellular domains of
+mouse PD-1 mutant and human PD-L1"*, beating `4ZQK` (human PD-1 / human PD-L1)
+by 0.02 points on slightly better resolution and coverage.
+
+**Why it matters.** Mouse and human PD-1 bind PD-L1 through a related but not
+identical interface, and `3SBW`'s PD-1 carries engineered mutations on top of
+that. As a template for the epitope a *human* binder should target, it is
+clearly worse — yet it scored higher, and nothing in the output said so. The
+entity description reads "Programmed cell death protein 1" either way.
+
+**Decision.** Source organism and mutation count are read from RCSB per entity
+and scored:
+
+| Condition | Penalty |
+|-----------|---------|
+| natural partner from another organism | −1.5 |
+| target chain from another organism | −2.0 |
+| partner carries engineered mutations | −0.75 |
+| target chain carries engineered mutations | −1.0 |
+
+Two deliberate exclusions. **Engineered partners take no species penalty** — a
+designed VHH is a "synthetic construct" and penalising that would be nonsense.
+**Missing organism data is never read as a mismatch**; unknown is unknown.
+
+**Rules out.** Treating a partner's identity as established by its description.
+"Programmed cell death protein 1" names mouse and human, wild type and mutant,
+identically.
+
+**Wrong if.** A cross-species complex is the only structure available for some
+target. The penalty demotes it rather than excluding it, so it still wins when
+nothing better exists — which is the intended behaviour.
+
+**Fourth instance, and the pattern is now the finding.** D-010 predicted it,
+D-014 found it in partner classification, D-015 in enrichment coverage, D-016 in
+partner provenance. Every one: the pipeline ran clean, printed accurate notes,
+and answered a question adjacent to the one asked. None was caught by a test —
+all four were caught by *looking at real output for a target whose right answer
+was independently known*.
+
+That is the argument for the D-010 benchmark in its strongest form. Stage 3 has
+no equivalent of "PD-1 should have won" available by inspection; the benchmark
+is the only thing that will play that role.

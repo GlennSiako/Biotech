@@ -124,19 +124,29 @@ def test_rcsb_parsing_tolerates_missing_fields():
 # --- Ranking ---------------------------------------------------------------
 
 TARGET = "Q9NZQ7"          # PD-L1
-PD1 = Partner("Programmed cell death protein 1", "Q15116", 110, "polypeptide(L)")
+PD1 = Partner("Programmed cell death protein 1", "Q15116", 110, "polypeptide(L)", 9606,
+              "Homo sapiens", 0)
 MACROCYCLE = Partner("PHE-MEA-9KK-SAR-ASP-VAL-MEA-TYR", None, 14, "polypeptide(L)")
 NANOBODY = Partner("single-domain antibody", None, 125, "polypeptide(L)")
 SELF = Partner("Programmed cell death 1 ligand 1", TARGET, 120, "polypeptide(L)")
 
 
+HUMAN = 9606
+MOUSE_PD1_MUTANT = Partner("Programmed cell death protein 1", "Q02242", 117,
+                           "polypeptide(L)", 10090, "Mus musculus", 3)
+SYNTHETIC_VHH = Partner("VHH 6", None, 128, "polypeptide(L)", 32630,
+                        "synthetic construct", 0)
+
+
 def _candidate(pdb_id, method="X-ray", resolution=2.0, start=18, end=134,
-               partners=(), enriched=True):
+               partners=(), enriched=True, target_taxon=HUMAN, target_mutations=0):
     c = StructureCandidate(pdb_id, method, resolution,
                            ChainCoverage(("A",), start, end),
                            n_polymer_entities=1 + len(partners))
     c.partners = tuple(partners)
     c.enriched = enriched
+    c.target_taxon = target_taxon
+    c.target_mutations = target_mutations
     return c
 
 
@@ -315,3 +325,72 @@ def test_enriching_only_a_shortlist_would_hide_the_natural_complex():
 
     fully = rank([natural, *engineered], target_accession=TARGET)
     assert fully[0].pdb_id == "4ZQK", "and first once every candidate is enriched"
+
+
+# --- Species and engineered mutations --------------------------------------
+
+def test_cross_species_mutant_partner_loses_to_the_native_complex():
+    """The bug the third live run exposed.
+
+    3SBW pairs a *mouse* PD-1 mutant with human PD-L1 and outscored 4ZQK, the
+    human complex, by 0.02 -- despite better resolution and coverage on 3SBW's
+    side. Neither the species nor the mutations appear in an entity description.
+    """
+    cross = _candidate("3SBW", resolution=2.28, end=133, partners=[MOUSE_PD1_MUTANT])
+    native = _candidate("4ZQK", resolution=2.45, end=132, partners=[PD1])
+    ranked = rank([cross, native], region=(18, 134),
+                  target_accession=TARGET, target_taxon=HUMAN)
+
+    assert ranked[0].pdb_id == "4ZQK"
+    demoted = next(c for c in ranked if c.pdb_id == "3SBW")
+    assert any("Mus musculus" in n for n in demoted.notes)
+    assert any("engineered mutation" in n for n in demoted.notes)
+
+
+def test_synthetic_binder_is_not_penalised_for_its_organism():
+    """An engineered VHH is a 'synthetic construct'; penalising that as a
+    species mismatch would be nonsense."""
+    scored = score_candidate(_candidate("8AOK", partners=[SYNTHETIC_VHH]),
+                             target_accession=TARGET, target_taxon=HUMAN)
+    assert not any("not the target's organism" in n for n in scored.notes)
+
+
+def test_mutant_target_chain_is_penalised():
+    """6NP9 is 'PD-L1 IgV domain V76T' -- a point mutant is a worse template."""
+    wild = score_candidate(_candidate("WILD", partners=[PD1]),
+                           target_accession=TARGET, target_taxon=HUMAN)
+    mutant = score_candidate(_candidate("MUTA", partners=[PD1], target_mutations=1),
+                             target_accession=TARGET, target_taxon=HUMAN)
+    assert mutant.score < wild.score
+    assert any("target chain carries 1 engineered mutation" in n for n in mutant.notes)
+
+
+def test_species_penalty_needs_a_known_taxon_on_both_sides():
+    """Missing organism data must not be read as a mismatch."""
+    unknown = Partner("some partner", "P00001", 110, "polypeptide(L)")
+    scored = score_candidate(_candidate("UNKN", partners=[unknown]),
+                             target_accession=TARGET, target_taxon=HUMAN)
+    assert not any("not the target's organism" in n for n in scored.notes)
+
+
+def test_unenriched_candidates_take_no_species_or_mutation_penalty():
+    scored = score_candidate(_candidate("PLAIN", enriched=False, target_mutations=5),
+                             target_accession=TARGET, target_taxon=HUMAN)
+    assert not any("mutation" in n for n in scored.notes)
+
+
+def test_organism_and_mutations_survive_graphql_parsing():
+    parsed = parse_graphql({"data": {"entries": [{
+        "rcsb_id": "3SBW", "struct": {"title": "mouse PD-1 mutant / human PD-L1"},
+        "rcsb_entry_info": {"polymer_entity_count_protein": 2},
+        "polymer_entities": [{
+            "rcsb_polymer_entity": {"pdbx_description": "PD-1"},
+            "entity_poly": {"rcsb_sample_sequence_length": 117,
+                            "type": "polypeptide(L)", "rcsb_mutation_count": 3},
+            "rcsb_entity_source_organism": [
+                {"ncbi_taxonomy_id": 10090, "scientific_name": "Mus musculus"}],
+        }],
+    }]}})
+    partner = parsed["3SBW"][2][0]
+    assert partner.taxon_id == 10090 and partner.organism == "Mus musculus"
+    assert partner.mutations == 3

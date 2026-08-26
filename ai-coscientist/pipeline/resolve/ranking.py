@@ -38,6 +38,15 @@ PARTNER_BONUS = {
 # Below this resolution, side-chain positions at an interface are unreliable.
 RESOLUTION_WARN = 3.0
 
+# A cross-species partner defines a related but different interface. 3SBW pairs
+# a *mouse* PD-1 mutant with human PD-L1 and outscored the human complex by 0.02
+# until these penalties existed: neither species nor mutations are visible in an
+# entity description.
+SPECIES_MISMATCH_PENALTY = -1.5
+TARGET_SPECIES_PENALTY = -2.0
+PARTNER_MUTATION_PENALTY = -0.75
+TARGET_MUTATION_PENALTY = -1.0
+
 
 def _method_score(method: str) -> float:
     for key, value in METHOD_SCORES.items():
@@ -76,7 +85,8 @@ def _classify(partner: Partner, target_accession: str | None) -> str:
 
 def score_candidate(candidate: StructureCandidate,
                     region: tuple[int, int] | None = None,
-                    target_accession: str | None = None) -> StructureCandidate:
+                    target_accession: str | None = None,
+                    target_taxon: int | None = None) -> StructureCandidate:
     """Score one candidate in place, recording the reasoning in `notes`."""
     notes: list[str] = []
     score = 0.0
@@ -120,6 +130,21 @@ def score_candidate(candidate: StructureCandidate,
             notes.append(f"partner: {partner.description[:60]} [{kind}{length}]")
         if best_kind[1] in ("natural protein", "engineered protein"):
             notes.append(f"protein-protein interface observed ({bonus:+.1f})")
+
+            partner = best_kind[0]
+            if (target_taxon and partner.taxon_id
+                    and partner.taxon_id != target_taxon
+                    and best_kind[1] == "natural protein"):
+                score += SPECIES_MISMATCH_PENALTY
+                notes.append(
+                    f"WARNING: partner is {partner.organism or partner.taxon_id}, "
+                    f"not the target's organism ({SPECIES_MISMATCH_PENALTY:+.1f}) — "
+                    "a cross-species complex defines a related but different interface"
+                )
+            if partner.mutations:
+                score += PARTNER_MUTATION_PENALTY
+                notes.append(f"WARNING: partner carries {partner.mutations} engineered "
+                             f"mutation(s) ({PARTNER_MUTATION_PENALTY:+.1f})")
         elif best_kind[1] == "peptide ligand":
             notes.append(f"only peptide/ligand partners ({bonus:+.1f}) — this is a "
                          "drug-binding site, not a protein-protein epitope")
@@ -129,6 +154,18 @@ def score_candidate(candidate: StructureCandidate,
         else:
             notes.append(f"no protein partner ({bonus:+.1f})")
 
+    if candidate.enriched:
+        if target_taxon and candidate.target_taxon and candidate.target_taxon != target_taxon:
+            score += TARGET_SPECIES_PENALTY
+            notes.append(f"WARNING: the target chain itself is taxon "
+                         f"{candidate.target_taxon}, not {target_taxon} "
+                         f"({TARGET_SPECIES_PENALTY:+.1f})")
+        if candidate.target_mutations:
+            score += TARGET_MUTATION_PENALTY
+            notes.append(f"WARNING: target chain carries {candidate.target_mutations} "
+                         f"engineered mutation(s) ({TARGET_MUTATION_PENALTY:+.1f}) — "
+                         "a point mutant is a worse template than wild type")
+
     candidate.score = round(score, 2)
     candidate.notes = notes
     return candidate
@@ -136,13 +173,15 @@ def score_candidate(candidate: StructureCandidate,
 
 def rank(candidates: list[StructureCandidate],
          region: tuple[int, int] | None = None,
-         target_accession: str | None = None) -> list[StructureCandidate]:
+         target_accession: str | None = None,
+         target_taxon: int | None = None) -> list[StructureCandidate]:
     """Score and sort candidates, best first.
 
     Ties break on resolution, then PDB ID, so the ordering is deterministic —
     a run must be replayable from its manifest (PROJECT_PLAN.md section 5.2).
     """
-    scored = [score_candidate(c, region, target_accession) for c in candidates]
+    scored = [score_candidate(c, region, target_accession, target_taxon)
+              for c in candidates]
     return sorted(
         scored,
         key=lambda c: (-c.score, c.resolution if c.resolution is not None else 99.0, c.pdb_id),

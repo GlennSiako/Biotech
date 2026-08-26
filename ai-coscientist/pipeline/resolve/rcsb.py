@@ -43,7 +43,8 @@ query Entries($ids: [String!]!) {
     rcsb_entry_info { polymer_entity_count_protein }
     polymer_entities {
       rcsb_polymer_entity { pdbx_description }
-      entity_poly { rcsb_sample_sequence_length type }
+      entity_poly { rcsb_sample_sequence_length type rcsb_mutation_count }
+      rcsb_entity_source_organism { ncbi_taxonomy_id scientific_name }
       rcsb_polymer_entity_container_identifiers {
         reference_sequence_identifiers { database_accession database_name }
       }
@@ -90,12 +91,28 @@ def parse_entity(payload: dict[str, Any]) -> Partner:
             uniprot = ref.get("database_accession")
             break
 
+    # Source organism and engineered mutations both change how good a template
+    # an entity is, and neither is visible in its description. A complex between
+    # a mouse PD-1 mutant and human PD-L1 reads identically to the human complex.
+    sources = payload.get("rcsb_entity_source_organism") or []
+    taxon = organism = None
+    for source in sources:
+        if source and source.get("ncbi_taxonomy_id") is not None:
+            taxon = int(source["ncbi_taxonomy_id"])
+            organism = source.get("scientific_name")
+            break
+
     length = poly.get("rcsb_sample_sequence_length")
+    mutations = poly.get("rcsb_mutation_count") or 0
+
     return Partner(
         description=entity.get("pdbx_description") or "unnamed entity",
         uniprot=uniprot,
         length=int(length) if length is not None else None,
         polymer_type=poly.get("type"),
+        taxon_id=taxon,
+        organism=organism,
+        mutations=int(mutations),
     )
 
 
@@ -123,18 +140,33 @@ def parse_graphql(payload: dict[str, Any]) -> dict[str, tuple[str | None, int | 
     return out
 
 
-def _drop_target_entity(partners: list[Partner], target_accession: str | None) -> tuple[Partner, ...]:
-    """Remove one copy of the target itself; further copies remain as homodimers."""
+def _split_target_entity(
+    partners: list[Partner], target_accession: str | None
+) -> tuple[tuple[Partner, ...], Partner | None]:
+    """Separate one copy of the target from its partners.
+
+    Returns (partners, the target's own entity). The target entity is kept
+    rather than discarded because its mutation count and organism describe the
+    quality of the template itself -- a structure of a point mutant is a worse
+    starting point than one of the wild-type protein.
+
+    Further copies of the target stay in `partners` and register as homodimers.
+    """
     if not target_accession:
-        return tuple(partners)
+        return tuple(partners), None
     kept: list[Partner] = []
-    dropped = False
+    target: Partner | None = None
     for partner in partners:
-        if not dropped and partner.uniprot == target_accession:
-            dropped = True
+        if target is None and partner.uniprot == target_accession:
+            target = partner
             continue
         kept.append(partner)
-    return tuple(kept)
+    return tuple(kept), target
+
+
+def _drop_target_entity(partners: list[Partner], target_accession: str | None) -> tuple[Partner, ...]:
+    """Backwards-compatible wrapper returning only the partners."""
+    return _split_target_entity(partners, target_accession)[0]
 
 
 def enrich_all(
@@ -185,7 +217,10 @@ def enrich_all(
             candidate = by_id[pdb_id]
             candidate.title = title
             candidate.n_polymer_entities = count
-            candidate.partners = _drop_target_entity(partners, target_accession)
+            candidate.partners, own = _split_target_entity(partners, target_accession)
+            if own is not None:
+                candidate.target_taxon = own.taxon_id
+                candidate.target_mutations = own.mutations
             candidate.enriched = True
 
     enriched = sum(1 for c in candidates if c.enriched)
@@ -232,6 +267,9 @@ def enrich(
             if entity is not None:
                 partners.append(parse_entity(entity))
 
-        candidate.partners = _drop_target_entity(partners, target_accession)
+        candidate.partners, own = _split_target_entity(partners, target_accession)
+        if own is not None:
+            candidate.target_taxon = own.taxon_id
+            candidate.target_mutations = own.mutations
 
     return candidates

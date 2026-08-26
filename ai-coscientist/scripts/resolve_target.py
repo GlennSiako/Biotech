@@ -112,14 +112,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Rank once to shortlist, enrich the shortlist, then re-rank: enrichment
     # supplies the complex flag, which carries the heaviest weight.
-    ranked = rank(candidates, args.region, target.accession)
+    ranked = rank(candidates, args.region, target.accession, target.taxon_id)
     if not args.no_enrich:
         # Enrich everything, not a shortlist. Partner kind is the heaviest term
         # in the score, so shortlisting on the criteria available beforehand
         # hides the structures that would win on it.
         print(f"Enriching all {len(ranked)} candidates from RCSB ...")
         enrich_all(ranked, target_accession=target.accession)
-        ranked = rank(ranked, args.region, target.accession)
+        ranked = rank(ranked, args.region, target.accession, target.taxon_id)
 
     manifest.candidates = [c.to_dict() for c in ranked]
     print_candidates(ranked, args.top)

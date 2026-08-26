@@ -65,6 +65,9 @@ class Partner:
     uniprot: str | None = None
     length: int | None = None
     polymer_type: str | None = None
+    taxon_id: int | None = None
+    organism: str | None = None
+    mutations: int = 0
 
     @property
     def kind(self) -> str:
@@ -97,6 +100,8 @@ class StructureCandidate:
     n_polymer_entities: int | None = None   # >1 means more than one polymer
     partners: tuple[Partner, ...] = ()      # polymer entities other than the target
     enriched: bool = False                  # RCSB detail actually retrieved
+    target_taxon: int | None = None         # organism of the target's own entity
+    target_mutations: int = 0               # engineered mutations in the target
     score: float = 0.0
     notes: list[str] = field(default_factory=list)
 
