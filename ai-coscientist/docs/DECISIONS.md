@@ -212,3 +212,83 @@ survivable at all.
 single-GPU job measured in days, not a cluster job.
 
 **Blocked on.** `nvidia-smi` output from the local machine.
+
+---
+
+## D-010 — Epitope selection is automated; human gate is target naming only (2026-08-26)
+
+**Supersedes D-003.**
+
+**Decision.** The agent performs structure cleanup *and* epitope selection. The
+only human input to a campaign is naming the target. Stages 1–7 run unattended.
+
+**Why.** Keeps the loop genuinely autonomous and lets campaigns run at volume
+without a human in the path.
+
+**Consequence — this is not a free change.** Epitope selection is the
+highest-leverage scientific judgment in the pipeline, and it fails *silently*: a
+plausible-but-irrelevant surface patch produces designs that score well on every
+downstream metric, because interface confidence measures whether a binder binds,
+never whether the site was worth binding. Automating it converts it from a step
+into a component that must be validated independently:
+
+- Benchmarked on held-out complexes with experimentally known interfaces,
+  measured on recovery of the true interface.
+- Must beat a naive surface-exposure baseline before campaign results depending
+  on it are believed.
+- Known experimental interfaces preferred over predicted ones where available,
+  with which was used recorded.
+- Every run reports the chosen epitope, the alternatives, and the confidence.
+
+**Rules out.** Treating epitope selection as preprocessing. It is now a Phase 1
+deliverable with its own benchmark.
+
+**Wrong if.** The selector cannot beat the naive baseline. Then the human gate
+returns for epitope choice until it can.
+
+---
+
+## D-011 — Compute: hourly GPU rental on Vast.ai (2026-08-26)
+
+**Resolves the open question in D-009.**
+
+**Decision.** Training runs use hourly GPU rental on Vast.ai. Phases 1 and 2
+still require essentially no GPU, so this affects G1 onward only.
+
+**Why.** Pay only while training, no session timeouts, and consumer-card pricing
+well below managed cloud. Scales to a larger card for G3 without a hardware
+purchase.
+
+**Caveat that shapes the code.** Vast.ai is a marketplace of individual hosts:
+instances can be reclaimed, host reliability varies, and storage is billed while
+an instance is stopped. Therefore:
+
+- **Checkpoints sync off-instance** (object storage or a pull to local), not
+  merely to the instance's disk. An instance disappearing must cost one
+  checkpoint interval, never a training run.
+- Checkpoint/resume built in from the first commit of training code, per D-009.
+- Prefer hosts with high reliability scores for long runs; treat any single
+  instance as disposable.
+- Datasets staged reproducibly from a manifest, so a fresh instance is
+  self-provisioning.
+
+**Wrong if.** Interruption rates make long runs impractical. Fallback is a
+managed provider (Lambda, RunPod) at higher cost for the same work.
+
+---
+
+## D-012 — Flow matching is the first architecture to attempt at G1 (2026-08-26)
+
+**Refines D-008 — does not close it.**
+
+**Decision.** G1 attempts flow matching over SE(3) frames first. The
+architecture choice formally remains open per D-008; this fixes only the
+starting point, not the answer.
+
+**Why.** Stabler training and substantially fewer sampling steps than
+score-based diffusion, and it is where the field has been heading. If it does
+not train well at G1 scale, the alternatives in D-008 remain available behind
+the same interface, at the cost of G1 time only.
+
+**Rules out.** Nothing permanently. The generator interface (D-004) is what
+protects this decision from being expensive to reverse.

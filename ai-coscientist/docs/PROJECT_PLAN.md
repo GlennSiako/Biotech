@@ -66,8 +66,8 @@ orchestrates; it does not do the science inline.
 |---|-------|-------|--------|-------------------|
 | 1 | **Target resolution** | Target name / gene symbol | UniProt accession, domain boundaries, candidate structures | UniProt REST, PDBe REST, AlphaFold DB |
 | 2 | **Structure preparation** | Structure IDs | Cleaned single-chain target, numbered consistently | Biopython / PDBFixer |
-| 3 | **Epitope selection** | Prepared structure | Hotspot residue set + surface patch | Known PPI interfaces, PISA, surface curvature/hydrophobicity analysis |
-| 4 | **Backbone generation** | Target + hotspots | N binder backbones (Cα/frame coordinates) | *Ours (Phase 3)*; baseline: pretrained checkpoint / Boltz `protein_design` |
+| 3 | **Epitope selection** | Prepared structure | Hotspot residue set + surface patch | Known PPI interfaces, PISA, surface curvature/hydrophobicity analysis. **Agent-selected — needs its own benchmark, see §5.1** |
+| 4 | **Backbone generation** | Target + hotspots | N binder backbones (Cα/frame coordinates) | *Ours (Phase 3)*; G0 baseline: hallucination (§4.4) |
 | 5 | **Sequence design** | Backbone | Amino acid sequence per backbone | Inverse folding (ProteinMPNN-class) |
 | 6 | **Validation** | Binder sequence + target | Complex structure + interface confidence | Boltz `structure_and_binding`, `protein_screen` |
 | 7 | **Ranking & report** | Validated complexes | Ranked candidates + rationale | Consensus scoring (§6) |
@@ -163,19 +163,45 @@ beat, and it makes Phases 1–2 completely independent of the compute question.
 
 ## 5. Agent model: semi-autonomous
 
-**Human gate at target selection. Autonomous thereafter.**
+**Human gate at target naming only. Autonomous from there.**
 
-1. Human names a target and approves the resolved structure + epitope choice.
-2. Agent runs stages 4–7 unattended.
-3. Agent returns a report: ranked candidates, metrics, what it filtered and why,
-   and what it would try next.
+1. Human names a target. That is the whole of the human input.
+2. Agent runs stages 1–7 unattended: resolves the target, prepares the
+   structure, **selects the epitope**, generates, designs sequences, validates,
+   and ranks.
+3. Agent returns a report: ranked candidates, metrics, the epitope it chose and
+   why, what it filtered and why, and what it would try next.
 
 The agent's judgment is exercised in *orchestration* — retrying failed stages,
 adjusting sampling when yield is low, deciding a run is not worth continuing —
 not in inventing science. Every scientific step is a deterministic, logged tool
 call.
 
-### 5.1 Reproducibility contract
+### 5.1 Consequence: epitope selection needs its own benchmark
+
+Epitope selection is the highest-leverage scientific judgment in the pipeline.
+Choose the wrong surface patch and the entire campaign is wasted — and **nothing
+downstream will report a problem**, because the designs will bind well to a site
+that does not matter. Interface confidence is blind to whether the interface was
+worth targeting.
+
+Automating it therefore turns it from a step into a component that must be
+validated on its own, before it is trusted:
+
+- **Benchmark**: run the selector on held-out complexes whose true interface is
+  known experimentally, and measure how often it recovers the real interface
+  (residue-level precision/recall, and whether the top-ranked patch is correct).
+- **Bar**: the selector must be measurably better than a naive surface-exposure
+  baseline before any campaign result that depends on it is believed.
+- **Fallback**: where a target has a known, experimentally characterised
+  interface, prefer it over a predicted one and record which was used.
+- **Reporting**: every run states the chosen epitope, the alternatives
+  considered, and the confidence — so a bad campaign is diagnosable after the
+  fact rather than mysterious.
+
+This is a Phase 1 work item, not a refinement.
+
+### 5.2 Reproducibility contract
 
 Every run writes `runs/<run_id>/` containing: input manifest, resolved
 structure IDs and versions, all model checkpoints and seeds, every intermediate
@@ -267,9 +293,9 @@ the generator before the scoreboard exists means training blind.
 |------|----------|------------|
 | Our from-scratch model underperforms the baseline | High | Staged G0–G3; baseline always available; success defined as beating a measured number, not as "it trained" |
 | Data leakage inflates metrics | High | Structural-cluster splits; benchmark targets never in training |
-| Compute insufficient for G3 | High | G1 scoped for a single GPU; G0 needs none; rental path available if local is short — see D-009 |
+| Compute insufficient for G3 | Medium | G1 scoped for a single GPU; G0 needs none; Vast.ai rental scales on demand — see D-011 |
 | Validation metrics don't predict real binding | Medium | Use metrics with published correlation to experimental hit rates; report as confidence, never as truth |
-| Epitope selection is the real bottleneck | Medium | Treat as a first-class stage with its own evaluation, not a preprocessing detail |
+| **Agent selects a plausible but biologically irrelevant epitope** | **High** | Now fully automated (D-010), and downstream metrics cannot detect it. Selector benchmarked against known interfaces before use; every run reports its epitope choice and alternatives — see §5.1 |
 | Chosen target has no bindable surface epitope | Medium | Target triage before committing a campaign; resolved for Phase 1 by D-007 |
 
 ---
@@ -283,10 +309,10 @@ the generator before the scoreboard exists means training blind.
    calibrating interface metrics in Phase 2. PARP1 becomes campaign two,
    retargeted onto a protein interaction surface rather than its catalytic
    pocket.
-2. **Compute budget.** Deferred by design (D-009) — Phases 1 and 2 need
-   essentially no GPU, so this blocks only G1 onward. Pending: the local
-   machine's GPU spec. Recommendation if local proves insufficient is hourly
-   GPU rental over Colab, for persistent storage and no session timeouts.
+2. ~~**Compute budget.**~~ **RESOLVED (D-011): hourly GPU rental on Vast.ai**
+   for training runs. Phases 1–2 need essentially no GPU regardless. Requires
+   checkpoints synced off-instance, since marketplace instances can be
+   reclaimed.
 3. **Binder class.** Unconstrained mini-binders (50–120 aa) versus a fixed
    scaffold class. Unconstrained is more general; scaffolded is far easier to
    validate and express.
