@@ -340,3 +340,15 @@ is then spent on training, not debugging.
 **Wrong if.** G1 turns out to fit in 8GB after all, in which case short local
 runs become viable and rental is reserved for G2/G3. Worth re-testing once the
 model is sized.
+
+**Addendum, 2026-08-26 — verified and measured.** Environment confirmed working:
+Ubuntu 24.04 on WSL2, Python 3.12.3, PyTorch 2.11.0+cu128, `sm_120` kernels
+present, gradients flowing (`scripts/verify_env.py` reports READY). Measured
+**25.3 TFLOP/s bf16**, with **6.7GB of the 8GB actually free** after display
+usage.
+
+This makes the rental decision quantitative rather than assumed: a rented
+consumer card is roughly 5–6× this throughput and a datacentre card
+substantially more, so sustained training on the laptop would be slow rather
+than impossible — slow enough that hourly rental pays for itself immediately.
+Batch-size planning uses the 6.7GB figure, not 8GB.

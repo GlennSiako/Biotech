@@ -117,16 +117,39 @@ faster, and by how much" a measured question later.
 
 ## 7. Verified versions
 
-Fill in once `verify_env.py` reports READY. These pins then apply to Vast.ai
-instances too, so both environments run identical code.
+**Status: READY** — verified 2026-08-26 by `scripts/verify_env.py`. Kernels
+launch and gradients flow. These are the pins to use on Vast.ai, so both
+environments run identical code.
 
 | Component | Version | Verified |
 |-----------|---------|----------|
-| Ubuntu (WSL2) | _tbd_ | _tbd_ |
-| Python | _tbd_ | _tbd_ |
-| PyTorch | _tbd_ | _tbd_ |
-| CUDA (torch build) | _tbd_ | _tbd_ |
+| Ubuntu (WSL2) | 24.04, kernel 6.6.114.1-microsoft-standard-WSL2 | 2026-08-26 |
+| Python | 3.12.3 | 2026-08-26 |
+| PyTorch | 2.11.0+cu128 | 2026-08-26 |
+| CUDA (torch build) | 12.8 | 2026-08-26 |
 | NVIDIA driver (Windows) | 596.08 | 2026-08-26 |
+
+Install line that worked:
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+```
+
+### Measured baseline (RTX 5070 Laptop)
+
+| Metric | Value |
+|--------|-------|
+| bf16 matmul throughput | **25.3 TFLOP/s** |
+| VRAM total | 8.0 GB |
+| **VRAM actually free** | **6.7 GB** — the display consumes the rest |
+| `sm_120` kernels | present in cu128 build |
+| bf16 / fp16 | both working |
+
+Two things to carry forward from this. **Budget against 6.7GB, not 8GB** — the
+difference is the margin that decides whether a batch size fits. And 25.3
+TFLOP/s is the number rented cards get compared against: a rented consumer card
+is roughly 5–6× this, a datacentre card substantially more, which is what makes
+Vast.ai worth the hourly cost for anything sustained (D-011, D-013).
 
 ## 8. Troubleshooting
 
