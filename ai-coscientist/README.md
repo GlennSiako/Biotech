@@ -16,6 +16,22 @@ confidence metrics.
 - **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)** — WSL2 + PyTorch setup for the
   development machine, and why Blackwell needs verifying rather than assuming.
 
+## Running stages 1-2
+
+```bash
+python scripts/resolve_target.py CD274 --region 18-134 --prepare
+```
+
+Resolves the target through UniProt, ranks every cross-referenced PDB entry for
+suitability, prepares the top-ranked chain, and writes
+`runs/<run_id>/manifest.json`. The manifest records **every candidate with its
+score and reasoning**, not just the winner — a campaign that goes wrong has to
+be explainable afterwards.
+
+```bash
+python -m pytest tests/ -q      # 51 tests, no network required
+```
+
 ## Verify your machine
 
 ```bash

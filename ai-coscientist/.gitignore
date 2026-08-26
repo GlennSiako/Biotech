@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Cached structure downloads -- reproducible from the manifest, so not tracked.
+data/structures/
+
+# Run artifacts. Manifests ARE tracked (PROJECT_PLAN.md section 5.2): they are
+# the record of what a campaign did. Coordinates are regenerable from them.
+runs/*/*.pdb
+runs/*/*.cif
