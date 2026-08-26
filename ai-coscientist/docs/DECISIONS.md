@@ -151,3 +151,64 @@ preference: IL-7Rα, TrkA, influenza hemagglutinin stem.
 
 **Note.** The benchmark *set* (§6.3 of the plan) is still to be frozen at the
 start of Phase 2. This decision fixes only the Phase 1 target.
+
+---
+
+## D-008 — Generator architecture is open; diffusion is not a requirement (2026-08-26)
+
+**Amends D-004.**
+
+**Decision.** The project commits to training a generative neural network
+ourselves. It does **not** commit to diffusion. The architecture is selected at
+G1, on evidence, from flow matching over SE(3) frames, frame diffusion,
+autoregressive/masked sequence models, or a structural VAE.
+
+**Current lean.** Flow matching over SE(3) frames — stabler training and
+substantially fewer sampling steps than score-based diffusion, and where the
+field has been heading. Not binding.
+
+**Why.** "Diffusion" was shorthand for "generative model" in the original
+framing. Fixing the architecture this early would be choosing on fashion rather
+than on evidence, and the interface in D-004 already makes the choice
+replaceable.
+
+**Rules out.** Nothing yet — that is the point. The one constraint retained: the
+model must satisfy `generate(target_structure, hotspots, n) -> List[Backbone]`,
+so an architecture generating sequence rather than geometry (autoregressive /
+masked) changes the contract of stages 5–6 and must be adopted knowingly.
+
+**Decide by.** Start of G1.
+
+---
+
+## D-009 — Compute deferred; hallucination baseline removes the dependency (2026-08-26)
+
+**Decision.** The compute question is deliberately deferred. Phases 1 and 2 run
+with essentially no GPU: they are API calls (Boltz co-folding) and CPU work.
+G0's baseline is **hallucination** — optimizing a sequence through a structure
+predictor's confidence objective — which trains nothing and therefore needs no
+training hardware.
+
+**Why.** This decouples the entire scoreboard-building effort from a hardware
+answer we do not have yet. Work starts now; compute is decided with better
+information, before G1.
+
+**Compute path when G1 arrives**, in order of preference:
+1. **Local machine** — best option if it has ≥16GB VRAM. Persistent disk, no
+   timeouts, nothing to babysit. *Spec pending.*
+2. **Hourly GPU rental** (RunPod / Vast.ai / Lambda) — recommended for real
+   training runs if local is short. Persistent storage, no session death, pay
+   only while training. Roughly $0.30–0.50/hr consumer cards, $1–2/hr A100.
+3. **Colab Pro** — acceptable for prototyping only. Session timeouts kill long
+   runs; viable only if checkpoint/resume is built in from the first commit of
+   the training code.
+4. **Colab free** — debugging only, not training.
+
+**Regardless of choice.** Training code is written checkpoint-resumable from
+step one. This is cheap to do upfront, and it is what makes options 2 and 3
+survivable at all.
+
+**Sizing.** G1 as scoped — unconditional backbones ≤100 residues — is a
+single-GPU job measured in days, not a cluster job.
+
+**Blocked on.** `nvidia-smi` output from the local machine.

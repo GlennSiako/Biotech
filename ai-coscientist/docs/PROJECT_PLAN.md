@@ -17,8 +17,10 @@ Build an agent-orchestrated pipeline that takes a **protein target** and returns
 **ranked set of de novo designed protein binders**, each with structural evidence
 and quantitative confidence metrics.
 
-The long-term goal is a **generative model, trained by us**, that is good at
-proposing binder backbones for a given target surface. Everything else in the
+The long-term goal is a **generative neural network, trained by us**, that is
+good at proposing binder backbones for a given target surface. The *architecture*
+of that network is deliberately left open (§4.1) — the commitment is to training
+a generative model ourselves, not to any one model family. Everything else in the
 system exists to (a) feed that model well-posed problems and (b) measure honestly
 whether its output is any good.
 
@@ -93,15 +95,30 @@ for another — it invalidates the downstream half of the original design:
 
 ## 4. The generative model (the actual project)
 
-### 4.1 Honest assessment of "from scratch"
+### 4.1 Architecture is an open choice
 
-Training a target-conditioned protein backbone diffusion model from scratch is
-the hardest thing in this plan, and the most likely place to lose months. Two
-facts worth internalizing:
+The project commits to *training a generative neural network ourselves*. It does
+not commit to diffusion. The architecture is chosen at G1, on evidence, from:
 
-1. The best-known binder design diffusion models were **not trained from
-   scratch** — they were fine-tuned from large pretrained structure prediction
-   networks. That pretraining is where much of the structural prior comes from.
+| Family | Generates | Trade-off |
+|--------|-----------|-----------|
+| **Flow matching over SE(3) frames** | Backbone geometry | Current field direction. Stabler training and far fewer sampling steps than score-based diffusion. **Default choice absent a reason otherwise.** |
+| **Diffusion over frames** | Backbone geometry | Better-documented, more reference implementations to learn from; slower sampling |
+| **Autoregressive / masked models** | Sequence | Simpler to train, but yields sequence rather than geometry — changes what stages 5–6 do |
+| **VAE over structure** | Backbone geometry | Easiest to train; historically weaker sample quality |
+
+Whichever is chosen, it sits behind the fixed interface in §4.2 and is judged on
+the same numbers.
+
+### 4.2 Honest assessment of "from scratch"
+
+Training a target-conditioned generative model from scratch is the hardest thing
+in this plan, and the most likely place to lose months. Two facts worth
+internalizing:
+
+1. The best-known binder design models were **not trained from scratch** — they
+   were fine-tuned from large pretrained structure prediction networks. That
+   pretraining is where much of the structural prior comes from.
 2. Unconditional backbone generation at modest length is a genuinely tractable
    from-scratch problem on small compute. **Target-conditioned binder design is
    not the same problem** and is considerably harder.
@@ -109,21 +126,32 @@ facts worth internalizing:
 This does not mean don't do it. It means **stage it**, and make sure the
 pipeline can measure the model before the model is the thing being measured.
 
-### 4.2 Staged path
+### 4.3 Staged path
 
 | Stage | Goal | Success criterion |
 |-------|------|-------------------|
-| **G0** | Swappable generator interface + trivial baseline | Pipeline runs end to end; produces numbers |
+| **G0** | Swappable generator interface + **hallucination baseline** (§4.4) | Pipeline runs end to end; produces numbers |
 | **G1** | Unconditional backbone diffusion, monomers ≤100 aa, trained by us | Designability: generated backbones round-trip through inverse folding + structure prediction to low RMSD |
 | **G2** | Motif / hotspot conditioning | Generated backbones present the requested motif geometry |
 | **G3** | Full target-conditioned binder generation | In-silico success rate competitive with the G0 baseline on the benchmark set |
 
 **The interface is fixed from day one:**
 `generate(target_structure, hotspots, n) -> List[Backbone]`
-Everything behind it is replaceable. G0 ships first so that G1–G3 have a
+Everything behind it is replaceable — including the model family itself (§4.1). G0 ships first so that G1–G3 have a
 scoreboard to beat.
 
-### 4.3 Data
+### 4.4 The G0 baseline: hallucination
+
+G0 uses **hallucination** — optimizing a candidate sequence by backpropagating
+through a structure predictor's own confidence objective — rather than an
+off-the-shelf generative checkpoint.
+
+**Why.** It is a published binder design method that **trains nothing**. No
+checkpoint dependency, no GPU requirement, no third-party model whose behaviour
+we do not control. It produces a real, defensible number for our own model to
+beat, and it makes Phases 1–2 completely independent of the compute question.
+
+### 4.5 Data
 
 - Source: PDB structures; monomers for G1, complexes for G2/G3.
 - **Splitting must be by structural cluster, not by chain or by date.** Sequence-
@@ -237,9 +265,9 @@ the generator before the scoreboard exists means training blind.
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| From-scratch conditioned diffusion underperforms baseline | High | Staged G0–G3; baseline always available; success defined as beating a measured number, not as "it trained" |
+| Our from-scratch model underperforms the baseline | High | Staged G0–G3; baseline always available; success defined as beating a measured number, not as "it trained" |
 | Data leakage inflates metrics | High | Structural-cluster splits; benchmark targets never in training |
-| Compute insufficient for G3 | High | **Open — see §10.** G1 scoped to be feasible on modest compute |
+| Compute insufficient for G3 | High | G1 scoped for a single GPU; G0 needs none; rental path available if local is short — see D-009 |
 | Validation metrics don't predict real binding | Medium | Use metrics with published correlation to experimental hit rates; report as confidence, never as truth |
 | Epitope selection is the real bottleneck | Medium | Treat as a first-class stage with its own evaluation, not a preprocessing detail |
 | Chosen target has no bindable surface epitope | Medium | Target triage before committing a campaign; resolved for Phase 1 by D-007 |
@@ -255,8 +283,10 @@ the generator before the scoreboard exists means training blind.
    calibrating interface metrics in Phase 2. PARP1 becomes campaign two,
    retargeted onto a protein interaction surface rather than its catalytic
    pocket.
-2. **Compute budget.** GPU access determines whether G3 is reachable and how
-   large the training set can be. Needs an answer before Phase 3 is scoped.
+2. **Compute budget.** Deferred by design (D-009) — Phases 1 and 2 need
+   essentially no GPU, so this blocks only G1 onward. Pending: the local
+   machine's GPU spec. Recommendation if local proves insufficient is hourly
+   GPU rental over Colab, for persistent storage and no session timeouts.
 3. **Binder class.** Unconstrained mini-binders (50–120 aa) versus a fixed
    scaffold class. Unconstrained is more general; scaffolded is far easier to
    validate and express.
