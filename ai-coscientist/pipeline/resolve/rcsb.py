@@ -24,8 +24,33 @@ log = logging.getLogger(__name__)
 
 RCSB_ENTRY = "https://data.rcsb.org/rest/v1/core/entry/{pdb_id}"
 RCSB_ENTITY = "https://data.rcsb.org/rest/v1/core/polymer_entity/{pdb_id}/{entity_id}"
+RCSB_GRAPHQL = "https://data.rcsb.org/graphql"
 
+# Shortlist size for the REST fallback path only; `enrich_all` has no limit.
 DEFAULT_SHORTLIST = 5
+
+# Entries per GraphQL request. The endpoint accepts large batches; this keeps
+# any single failure cheap to retry.
+BATCH_SIZE = 50
+
+# One query returns every entry with its polymer entities, their lengths, and
+# their UniProt cross-references -- everything partner classification needs.
+GRAPHQL_QUERY = """
+query Entries($ids: [String!]!) {
+  entries(entry_ids: $ids) {
+    rcsb_id
+    struct { title }
+    rcsb_entry_info { polymer_entity_count_protein }
+    polymer_entities {
+      rcsb_polymer_entity { pdbx_description }
+      entity_poly { rcsb_sample_sequence_length type }
+      rcsb_polymer_entity_container_identifiers {
+        reference_sequence_identifiers { database_accession database_name }
+      }
+    }
+  }
+}
+"""
 
 
 def _get_json(url: str, session: requests.Session, timeout: float) -> dict[str, Any] | None:
@@ -79,6 +104,95 @@ def parse_entity_name(payload: dict[str, Any]) -> str | None:
     return (payload.get("rcsb_polymer_entity") or {}).get("pdbx_description")
 
 
+def parse_graphql(payload: dict[str, Any]) -> dict[str, tuple[str | None, int | None, list[Partner]]]:
+    """Parse a batched GraphQL response into {pdb_id: (title, count, partners)}."""
+    entries = ((payload.get("data") or {}).get("entries")) or []
+    out: dict[str, tuple[str | None, int | None, list[Partner]]] = {}
+
+    for entry in entries:
+        if not entry:
+            continue
+        pdb_id = (entry.get("rcsb_id") or "").upper()
+        if not pdb_id:
+            continue
+        title = (entry.get("struct") or {}).get("title")
+        count = (entry.get("rcsb_entry_info") or {}).get("polymer_entity_count_protein")
+        partners = [parse_entity(e) for e in (entry.get("polymer_entities") or []) if e]
+        out[pdb_id] = (title, int(count) if count is not None else None, partners)
+
+    return out
+
+
+def _drop_target_entity(partners: list[Partner], target_accession: str | None) -> tuple[Partner, ...]:
+    """Remove one copy of the target itself; further copies remain as homodimers."""
+    if not target_accession:
+        return tuple(partners)
+    kept: list[Partner] = []
+    dropped = False
+    for partner in partners:
+        if not dropped and partner.uniprot == target_accession:
+            dropped = True
+            continue
+        kept.append(partner)
+    return tuple(kept)
+
+
+def enrich_all(
+    candidates: list[StructureCandidate],
+    *,
+    target_accession: str | None = None,
+    session: requests.Session | None = None,
+    timeout: float = 60.0,
+) -> list[StructureCandidate]:
+    """Enrich every candidate via batched GraphQL.
+
+    Enriching only a shortlist biases the result: partner kind carries the
+    heaviest weight in ranking, so shortlisting on the criteria available
+    *before* enrichment (method, resolution, coverage) hides the best structures
+    behind worse ones that merely resolve better. Run against PD-L1 that dropped
+    the PD-1 complexes entirely -- the one interface the campaign actually wants.
+
+    One request covers fifty entries, so enriching all of them costs less than
+    the per-entry REST calls cost for five.
+    """
+    sess = session or requests.Session()
+    by_id = {c.pdb_id: c for c in candidates}
+    ids = list(by_id)
+
+    for start in range(0, len(ids), BATCH_SIZE):
+        chunk = ids[start:start + BATCH_SIZE]
+        try:
+            resp = sess.post(RCSB_GRAPHQL,
+                             json={"query": GRAPHQL_QUERY, "variables": {"ids": chunk}},
+                             timeout=timeout)
+            resp.raise_for_status()
+            payload = resp.json()
+        except (requests.RequestException, ValueError) as exc:
+            log.warning("GraphQL enrichment failed for %d entries (%s); "
+                        "falling back to REST", len(chunk), exc)
+            enrich([by_id[i] for i in chunk], target_accession=target_accession,
+                   limit=len(chunk), session=sess, timeout=timeout)
+            continue
+
+        if payload.get("errors"):
+            log.warning("GraphQL reported errors: %s", payload["errors"])
+
+        parsed = parse_graphql(payload)
+        for pdb_id in chunk:
+            if pdb_id not in parsed:
+                continue
+            title, count, partners = parsed[pdb_id]
+            candidate = by_id[pdb_id]
+            candidate.title = title
+            candidate.n_polymer_entities = count
+            candidate.partners = _drop_target_entity(partners, target_accession)
+            candidate.enriched = True
+
+    enriched = sum(1 for c in candidates if c.enriched)
+    log.info("enriched %d/%d candidates", enriched, len(candidates))
+    return candidates
+
+
 def enrich(
     candidates: list[StructureCandidate],
     *,
@@ -94,8 +208,8 @@ def enrich(
     accession is reported as a homodimer partner, which is true but is a
     different claim from "a partner protein binds here".
 
-    `limit` exists because enrichment costs one request per entry plus one per
-    polymer entity; enriching seventy entries to choose one wastes calls.
+    This per-entry REST path is the fallback for when GraphQL is unavailable;
+    `enrich_all` is the normal route and has no shortlist.
     """
     sess = session or requests.Session()
 
@@ -115,15 +229,9 @@ def enrich(
                 RCSB_ENTITY.format(pdb_id=candidate.pdb_id, entity_id=entity_id),
                 sess, timeout,
             )
-            if entity is None:
-                continue
-            partner = parse_entity(entity)
-            # Skip the target's own entity; keep everything else, including a
-            # second copy of the target, which is flagged as a homodimer.
-            if target_accession and partner.uniprot == target_accession and not partners:
-                continue
-            partners.append(partner)
+            if entity is not None:
+                partners.append(parse_entity(entity))
 
-        candidate.partners = tuple(partners)
+        candidate.partners = _drop_target_entity(partners, target_accession)
 
     return candidates

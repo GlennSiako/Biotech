@@ -7,7 +7,9 @@ import pytest
 from fixtures import UNIPROT_PAYLOAD
 from pipeline.resolve.models import ChainCoverage, Partner, StructureCandidate
 from pipeline.resolve.ranking import rank, score_candidate
-from pipeline.resolve.rcsb import parse_entity, parse_entity_name, parse_entry
+from pipeline.resolve.rcsb import (
+    _drop_target_entity, parse_entity, parse_entity_name, parse_entry, parse_graphql,
+)
 from pipeline.resolve.uniprot import (
     ResolutionError, _parse_coverage, _parse_resolution, build_queries,
     parse_structures, parse_target,
@@ -238,3 +240,78 @@ def test_ranking_is_deterministic():
     candidates = [_candidate(x) for x in ("BBBB", "AAAA", "CCCC")]
     assert [c.pdb_id for c in rank(list(candidates))] == \
            [c.pdb_id for c in rank(list(reversed(candidates)))]
+
+
+# --- Batched GraphQL enrichment --------------------------------------------
+
+def _gql_entity(description, accession, length, poly_type="polypeptide(L)"):
+    entity = {
+        "rcsb_polymer_entity": {"pdbx_description": description},
+        "entity_poly": {"rcsb_sample_sequence_length": length, "type": poly_type},
+    }
+    if accession:
+        entity["rcsb_polymer_entity_container_identifiers"] = {
+            "reference_sequence_identifiers": [
+                {"database_name": "UniProt", "database_accession": accession}]}
+    return entity
+
+
+GQL_RESPONSE = {"data": {"entries": [
+    {"rcsb_id": "4zqk", "struct": {"title": "PD-1/PD-L1 complex"},
+     "rcsb_entry_info": {"polymer_entity_count_protein": 2},
+     "polymer_entities": [_gql_entity("PD-L1", TARGET, 115),
+                          _gql_entity("PD-1", "Q15116", 110)]},
+    {"rcsb_id": "5O45", "struct": {"title": "PD-L1 with inhibitor"},
+     "rcsb_entry_info": {"polymer_entity_count_protein": 2},
+     "polymer_entities": [_gql_entity("PD-L1", TARGET, 115),
+                          _gql_entity("PHE-MEA-9KK-SAR", None, 15)]},
+]}}
+
+
+def test_graphql_batch_is_parsed_and_ids_normalised():
+    parsed = parse_graphql(GQL_RESPONSE)
+    assert set(parsed) == {"4ZQK", "5O45"}, "PDB ids must be upper-cased"
+    title, count, partners = parsed["4ZQK"]
+    assert title == "PD-1/PD-L1 complex" and count == 2
+    assert len(partners) == 2
+
+
+def test_graphql_parsing_tolerates_empty_and_null_entries():
+    assert parse_graphql({}) == {}
+    assert parse_graphql({"data": {"entries": [None]}}) == {}
+    assert parse_graphql({"data": {"entries": [{"rcsb_id": ""}]}}) == {}
+
+
+def test_target_own_entity_is_dropped_once():
+    _, _, partners = parse_graphql(GQL_RESPONSE)["4ZQK"]
+    kept = _drop_target_entity(partners, TARGET)
+    assert [p.description for p in kept] == ["PD-1"]
+
+
+def test_second_target_copy_survives_as_a_homodimer():
+    """Dropping every copy would hide inhibitor-induced self-association."""
+    partners = [Partner("PD-L1", TARGET, 115, "polypeptide(L)"),
+                Partner("PD-L1", TARGET, 115, "polypeptide(L)")]
+    kept = _drop_target_entity(partners, TARGET)
+    assert len(kept) == 1 and kept[0].uniprot == TARGET
+
+
+def test_enriching_only_a_shortlist_would_hide_the_natural_complex():
+    """The bug the second live run exposed.
+
+    Partner kind carries the heaviest weight, but it is unknown before
+    enrichment. Ranking unenriched candidates orders them on resolution alone,
+    so a 2.45 A natural complex sits below sub-2 A engineered-binder structures
+    and never gets enriched -- the one interface the campaign wants, dropped.
+    """
+    natural = _candidate("4ZQK", resolution=2.45, partners=[PD1])
+    engineered = [_candidate(f"VHH{i}", resolution=1.5 + i / 100, partners=[NANOBODY])
+                  for i in range(5)]
+
+    unenriched = [_candidate(c.pdb_id, resolution=c.resolution, enriched=False)
+                  for c in [natural, *engineered]]
+    order = [c.pdb_id for c in rank(unenriched, target_accession=TARGET)]
+    assert order.index("4ZQK") == len(order) - 1, "natural complex ranks last unenriched"
+
+    fully = rank([natural, *engineered], target_accession=TARGET)
+    assert fully[0].pdb_id == "4ZQK", "and first once every candidate is enriched"

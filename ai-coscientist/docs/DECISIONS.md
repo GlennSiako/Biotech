@@ -400,3 +400,42 @@ crash, but a confident answer to the wrong question. Every stage where the agent
 picks one item from several needs an explicit account of *why the alternatives
 lost*, and a guard that refuses rather than guesses. The ambiguity guard at
 UniProt resolution caught its case; the ranking had no equivalent and did not.
+
+---
+
+## D-015 — Enrich every candidate, never a shortlist (2026-08-26)
+
+**Prompted by the second live run of stage 1. Same failure shape as D-014.**
+
+**What happened.** After D-014 fixed partner classification, the top five PD-L1
+structures were all *engineered* binders — VHH nanobodies, an antibody, a
+designed cystine-dense peptide. PD-1 itself did not appear. `4ZQK` (PD-L1 with
+PD-1, 2.45 A) scores 12.5 and should have led.
+
+**Why.** Enrichment ran on the top 15 candidates *as ranked before enrichment* —
+and before enrichment the only terms available are method, resolution, and
+coverage. At 2.45 A the natural complex sat below a crowd of sub-2 A structures,
+fell outside the shortlist, was never enriched, and so never received the
+partner bonus that would have put it first. **The heaviest-weighted criterion
+was computed only for candidates that already scored well without it.**
+
+**Decision.** Every candidate is enriched, via batched GraphQL against the RCSB
+Data API: one request covers fifty entries with their polymer entities, lengths,
+and UniProt cross-references. Enriching all 72 PD-L1 entries now costs fewer
+requests than the per-entry REST path cost for five. The REST path remains as a
+fallback when GraphQL is unavailable.
+
+**Rules out.** Any shortlist computed on a subset of the ranking criteria. If a
+term contributes to the score, it is computed for every candidate before
+ranking, or it is not in the score.
+
+**Wrong if.** A target has so many structures that batched enrichment becomes
+slow. The answer is more batching, not a shortlist — restoring one reintroduces
+exactly this bias.
+
+**Third instance of the same lesson.** D-010 predicted silent failure at epitope
+selection. D-014 found it in partner classification. This is it in candidate
+enrichment. In all three the pipeline ran clean and reported confidently; only
+the question was wrong. Two rules are now earning their keep: *account for why
+the alternatives lost*, and *never let an optimisation decide what gets
+evaluated*.

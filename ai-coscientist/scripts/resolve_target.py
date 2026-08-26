@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pipeline.resolve import ResolutionError, rank, resolve          # noqa: E402
-from pipeline.resolve.rcsb import enrich                             # noqa: E402
+from pipeline.resolve.rcsb import enrich_all                         # noqa: E402
 from pipeline.run.manifest import RunManifest                        # noqa: E402
 from pipeline.structure import FetchError, fetch_structure, prepare  # noqa: E402
 
@@ -67,9 +67,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--top", type=int, default=5, help="candidates to display")
     ap.add_argument("--no-enrich", action="store_true",
                     help="skip RCSB enrichment (faster; partners unknown)")
-    ap.add_argument("--enrich", type=int, default=15,
-                    help="how many top candidates to enrich with RCSB detail "
-                         "(costs ~1 request per entry plus one per entity)")
     ap.add_argument("--prepare", action="store_true",
                     help="fetch and prepare the top-ranked structure")
     ap.add_argument("--chain", default=None,
@@ -117,7 +114,11 @@ def main(argv: list[str] | None = None) -> int:
     # supplies the complex flag, which carries the heaviest weight.
     ranked = rank(candidates, args.region, target.accession)
     if not args.no_enrich:
-        enrich(ranked, target_accession=target.accession, limit=max(args.top, args.enrich))
+        # Enrich everything, not a shortlist. Partner kind is the heaviest term
+        # in the score, so shortlisting on the criteria available beforehand
+        # hides the structures that would win on it.
+        print(f"Enriching all {len(ranked)} candidates from RCSB ...")
+        enrich_all(ranked, target_accession=target.accession)
         ranked = rank(ranked, args.region, target.accession)
 
     manifest.candidates = [c.to_dict() for c in ranked]
