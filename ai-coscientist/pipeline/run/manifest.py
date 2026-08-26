@@ -23,6 +23,7 @@ class RunManifest:
     created_at: str
     query: str
     region: tuple[int, int] | None
+    search_strategy: str | None = None
     target: dict[str, Any] | None = None
     candidates: list[dict[str, Any]] | None = None
     chosen: dict[str, Any] | None = None
@@ -36,6 +37,7 @@ class RunManifest:
             "run_id": self.run_id,
             "created_at": self.created_at,
             "query": self.query,
+            "search_strategy": self.search_strategy,
             "region": list(self.region) if self.region else None,
             "target": self.target,
             "candidates": self.candidates or [],

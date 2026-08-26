@@ -25,6 +25,10 @@ HUMAN_TAXON = 9606
 # UniProt returns a very large default payload.
 FIELDS = "accession,id,protein_name,gene_names,organism_name,organism_id,length,sequence,xref_pdb"
 
+# UniProt accessions: the two documented formats.
+_ACCESSION_RE = re.compile(
+    r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$", re.I)
+
 _RESOLUTION_RE = re.compile(r"([\d.]+)\s*A")
 # Chain coverage looks like "A/B=18-239", occasionally several comma-separated.
 _CHAINS_RE = re.compile(r"([A-Za-z0-9/]+)=(-?\d+)-(-?\d+)")
@@ -32,6 +36,30 @@ _CHAINS_RE = re.compile(r"([A-Za-z0-9/]+)=(-?\d+)-(-?\d+)")
 
 class ResolutionError(RuntimeError):
     """Raised when a target cannot be resolved to a single UniProt entry."""
+
+
+def build_queries(query: str) -> list[tuple[str, str]]:
+    """Build an ordered list of (strategy, query) to try.
+
+    An unqualified term is a *full-text* search in UniProt, which matches any
+    entry merely mentioning it. Searching "CD274" that way returns ten reviewed
+    human entries -- including PDCD1, the receptor its product binds. Taking the
+    first of those would design binders against the wrong protein while every
+    downstream metric still looked healthy.
+
+    So a bare symbol is tried as an exact gene name first, then as a gene name
+    or synonym, and only then as free text. The strategy that succeeded is
+    recorded in the run manifest, because which one matched changes how much the
+    result should be trusted.
+    """
+    q = query.strip()
+    if _ACCESSION_RE.match(q):
+        return [("accession", f"accession:{q.upper()}")]
+    if " " not in q:
+        return [("gene_exact", f"gene_exact:{q}"),
+                ("gene", f"gene:{q}"),
+                ("full_text", f"({q})")]
+    return [("full_text", f"({q})")]
 
 
 def fetch_entry(
@@ -42,35 +70,53 @@ def fetch_entry(
     session: requests.Session | None = None,
     timeout: float = 30.0,
     retries: int = 3,
-) -> dict[str, Any]:
-    """Search UniProt and return the raw JSON payload.
+) -> tuple[dict[str, Any], str]:
+    """Search UniProt, returning the raw payload and the strategy that matched.
 
     Restricted to reviewed (Swiss-Prot) entries by default: TrEMBL contains many
     unreviewed predictions per gene, and picking among those automatically is
     not a judgement worth making silently.
+
+    Strategies are tried in order and the first returning any result wins. A
+    strategy returning several entries is *not* retried more broadly -- broadening
+    an already-ambiguous search only adds noise, and the ambiguity is reported.
     """
-    terms = [f"({query})", f"organism_id:{organism_id}"]
-    if reviewed_only:
-        terms.append("reviewed:true")
-    params = {"query": " AND ".join(terms), "format": "json", "fields": FIELDS, "size": "10"}
-
     sess = session or requests.Session()
+    strategies = build_queries(query)
+    payload: dict[str, Any] = {"results": []}
     last: Exception | None = None
-    for attempt in range(retries):
-        try:
-            resp = sess.get(UNIPROT_SEARCH, params=params, timeout=timeout)
-            resp.raise_for_status()
-            return resp.json()
-        except (requests.RequestException, ValueError) as exc:
-            last = exc
-            if attempt < retries - 1:
-                delay = 2 ** attempt
-                log.warning("UniProt request failed (%s); retrying in %ss", exc, delay)
-                time.sleep(delay)
-    raise ResolutionError(f"UniProt search failed for {query!r}: {last}") from last
+
+    for strategy, term in strategies:
+        terms = [term, f"organism_id:{organism_id}"]
+        if reviewed_only:
+            terms.append("reviewed:true")
+        params = {"query": " AND ".join(terms), "format": "json",
+                  "fields": FIELDS, "size": "10"}
+
+        for attempt in range(retries):
+            try:
+                resp = sess.get(UNIPROT_SEARCH, params=params, timeout=timeout)
+                resp.raise_for_status()
+                payload = resp.json()
+                break
+            except (requests.RequestException, ValueError) as exc:
+                last = exc
+                if attempt < retries - 1:
+                    delay = 2 ** attempt
+                    log.warning("UniProt request failed (%s); retrying in %ss", exc, delay)
+                    time.sleep(delay)
+        else:
+            raise ResolutionError(f"UniProt search failed for {query!r}: {last}") from last
+
+        if payload.get("results"):
+            log.info("matched %r via %s", query, strategy)
+            return payload, strategy
+
+    return payload, strategies[-1][0]
 
 
-def parse_target(payload: dict[str, Any], *, query: str = "") -> Target:
+def parse_target(payload: dict[str, Any], *, query: str = "",
+                 strategy: str = "") -> Target:
     """Extract the single best target from a UniProt search payload.
 
     Raises if the search is ambiguous. An automated pipeline choosing silently
@@ -78,13 +124,18 @@ def parse_target(payload: dict[str, Any], *, query: str = "") -> Target:
     at stage 1 than discover after a campaign.
     """
     results = payload.get("results") or []
+    via = f" (via {strategy})" if strategy else ""
     if not results:
-        raise ResolutionError(f"no reviewed UniProt entry found for {query!r}")
+        raise ResolutionError(f"no reviewed UniProt entry found for {query!r}{via}")
     if len(results) > 1:
-        accs = ", ".join(r.get("primaryAccession", "?") for r in results[:5])
+        named = ", ".join(
+            f"{r.get('primaryAccession', '?')}"
+            f"{'=' + r['genes'][0]['geneName']['value'] if r.get('genes') else ''}"
+            for r in results[:5]
+        )
         raise ResolutionError(
-            f"{query!r} matched {len(results)} reviewed entries ({accs}). "
-            "Disambiguate with an accession or a more specific query."
+            f"{query!r} matched {len(results)} reviewed entries{via}: {named}. "
+            "Pass a UniProt accession to disambiguate."
         )
 
     entry = results[0]
@@ -171,11 +222,11 @@ def resolve(
     *,
     organism_id: int = HUMAN_TAXON,
     session: requests.Session | None = None,
-) -> tuple[Target, list[StructureCandidate]]:
-    """Resolve a query to a target and its candidate structures."""
-    payload = fetch_entry(query, organism_id=organism_id, session=session)
-    target = parse_target(payload, query=query)
+) -> tuple[Target, list[StructureCandidate], str]:
+    """Resolve a query to a target, its candidate structures, and the strategy used."""
+    payload, strategy = fetch_entry(query, organism_id=organism_id, session=session)
+    target = parse_target(payload, query=query, strategy=strategy)
     structures = parse_structures(payload)
-    log.info("resolved %s -> %s with %d PDB entries",
-             query, target.accession, len(structures))
-    return target, structures
+    log.info("resolved %s -> %s via %s with %d PDB entries",
+             query, target.accession, strategy, len(structures))
+    return target, structures, strategy

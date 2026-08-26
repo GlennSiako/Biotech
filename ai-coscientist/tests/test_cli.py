@@ -65,7 +65,7 @@ def test_end_to_end_flow_with_stubbed_network(tmp_path, monkeypatch, capsys):
     from pipeline.resolve.uniprot import parse_structures, parse_target
 
     def fake_resolve(query, organism_id=9606, session=None):
-        return parse_target(UNIPROT_PAYLOAD), parse_structures(UNIPROT_PAYLOAD)
+        return parse_target(UNIPROT_PAYLOAD), parse_structures(UNIPROT_PAYLOAD), "gene_exact"
 
     monkeypatch.setattr(resolve_target, "resolve", fake_resolve)
 
@@ -80,6 +80,7 @@ def test_end_to_end_flow_with_stubbed_network(tmp_path, monkeypatch, capsys):
     manifest_path = next(tmp_path.glob("*/manifest.json"))
     data = json.loads(manifest_path.read_text())
     assert data["target"]["accession"] == "Q9NZQ7"
+    assert data["search_strategy"] == "gene_exact"
     assert data["chosen"]["pdb_id"] in {"4ZQK", "3BIK"}
     assert len(data["candidates"]) == 3
     assert all(c["notes"] for c in data["candidates"]), "reasoning must be recorded"

@@ -29,8 +29,14 @@ score and reasoning**, not just the winner — a campaign that goes wrong has to
 be explainable afterwards.
 
 ```bash
-python -m pytest tests/ -q      # 51 tests, no network required
+pip install -r requirements-dev.txt
+python -m pytest tests/ -q      # 58 tests, no network required
 ```
+
+Pass a gene symbol (`CD274`), a UniProt accession (`Q9NZQ7`), or a protein name.
+Symbols are searched as exact gene names first — an unqualified term is a
+full-text search in UniProt, and `CD274` that way matches ten reviewed human
+entries including PDCD1, the receptor its product binds.
 
 ## Verify your machine
 

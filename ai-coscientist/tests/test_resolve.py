@@ -9,7 +9,8 @@ from pipeline.resolve.models import ChainCoverage, StructureCandidate
 from pipeline.resolve.ranking import rank, score_candidate
 from pipeline.resolve.rcsb import parse_entity_name, parse_entry
 from pipeline.resolve.uniprot import (
-    ResolutionError, _parse_coverage, _parse_resolution, parse_structures, parse_target,
+    ResolutionError, _parse_coverage, _parse_resolution, build_queries,
+    parse_structures, parse_target,
 )
 
 
@@ -35,6 +36,38 @@ def test_ambiguous_search_raises_rather_than_guessing():
     ]}
     with pytest.raises(ResolutionError, match="matched 2 reviewed entries"):
         parse_target(payload, query="ambiguous")
+
+
+def test_ambiguity_error_names_the_genes_it_matched():
+    """The first live run returned ten accessions with no hint which was which."""
+    payload = {"results": [
+        {"primaryAccession": "Q9NZQ7", "genes": [{"geneName": {"value": "CD274"}}]},
+        {"primaryAccession": "Q15116", "genes": [{"geneName": {"value": "PDCD1"}}]},
+    ]}
+    with pytest.raises(ResolutionError, match=r"Q9NZQ7=CD274.*Q15116=PDCD1"):
+        parse_target(payload, query="CD274", strategy="full_text")
+
+
+# --- Query construction ----------------------------------------------------
+
+def test_gene_symbol_tries_exact_gene_before_free_text():
+    """A bare term is a full-text search in UniProt: 'CD274' matched ten reviewed
+    entries including PDCD1, the receptor its product binds."""
+    strategies = [s for s, _ in build_queries("CD274")]
+    assert strategies == ["gene_exact", "gene", "full_text"]
+    assert build_queries("CD274")[0][1] == "gene_exact:CD274"
+
+
+@pytest.mark.parametrize("accession", ["Q9NZQ7", "q9nzq7", "P40763", "A0A123B4C5"])
+def test_accession_queries_the_accession_field(accession):
+    strategies = build_queries(accession)
+    assert len(strategies) == 1
+    assert strategies[0][0] == "accession"
+    assert strategies[0][1] == f"accession:{accession.upper()}"
+
+
+def test_multiword_name_uses_free_text_only():
+    assert [s for s, _ in build_queries("programmed cell death 1 ligand")] == ["full_text"]
 
 
 def test_extracts_pdb_xrefs_and_ignores_other_databases():

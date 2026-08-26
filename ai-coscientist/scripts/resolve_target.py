@@ -90,15 +90,20 @@ def main(argv: list[str] | None = None) -> int:
     run_dir = args.runs_dir / manifest.run_id
 
     try:
-        target, candidates = resolve(args.query, organism_id=args.organism)
+        target, candidates, strategy = resolve(args.query, organism_id=args.organism)
     except ResolutionError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         manifest.errors.append(str(exc))
         manifest.write(run_dir)
         return 1
 
-    manifest.target = target.__dict__ | {"sequence": target.sequence}
+    manifest.search_strategy = strategy
+    manifest.target = dict(target.__dict__)
     print(f"\nTarget: {target.summary()}")
+    print(f"        matched via {strategy}")
+    if strategy == "full_text":
+        print("        NOTE: matched on free text, not a gene name — confirm this "
+              "is the intended protein")
 
     if not candidates:
         print("No PDB structures cross-referenced for this target.", file=sys.stderr)
