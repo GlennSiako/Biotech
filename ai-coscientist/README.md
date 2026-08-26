@@ -13,6 +13,17 @@ confidence metrics.
   decisions.
 - **[docs/DECISIONS.md](docs/DECISIONS.md)** — append-only log of decisions and
   what each one rules out.
+- **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)** — WSL2 + PyTorch setup for the
+  development machine, and why Blackwell needs verifying rather than assuming.
+
+## Verify your machine
+
+```bash
+python scripts/verify_env.py
+```
+
+Launches real kernels and a backward pass. On Blackwell, driver-level checks
+pass while compute still fails — this is the test that tells the truth.
 
 ## The shape of it
 

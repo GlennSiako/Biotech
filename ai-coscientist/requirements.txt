@@ -1,0 +1,11 @@
+# Core dependencies for Phases 1-2 (structure handling, no GPU required).
+#
+# PyTorch is deliberately NOT pinned here -- it must be installed against
+# CUDA >= 12.8 for Blackwell sm_120 support. See docs/ENVIRONMENT.md section 4,
+# then record the verified version in section 7.
+
+biopython>=1.83          # structure parsing, PDB/mmCIF handling
+numpy>=1.26
+requests>=2.31           # UniProt / PDBe / AlphaFold DB REST clients
+scipy>=1.11              # geometry, clustering
+pandas>=2.1              # run tables, benchmark bookkeeping
